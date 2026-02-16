@@ -4,6 +4,12 @@
   "description": "Model Context Protocol (MCP) server scaffold for Microsoft OneNote via OAuth",
   "type": "module",
   "main": "./dist/index.js",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
   "bin": {
     "onenote-mcp": "dist/index.js"
   },
@@ -12,8 +18,10 @@
   ],
   "scripts": {
     "dev": "tsx watch --require dotenv/config src/index.ts",
+    "dev:http": "cross-env MCP_TRANSPORT=http tsx watch --require dotenv/config src/index.ts",
     "build": "tsup",
     "start": "node -r dotenv/config dist/index.js",
+    "start:http": "cross-env MCP_TRANSPORT=http node -r dotenv/config dist/index.js",
     "inspect": "mcp-inspector tsx --require dotenv/config src/index.ts",
     "inspect:dist": "pnpm run build && mcp-inspector node -r dotenv/config dist/index.js",
     "lint": "eslint .",
@@ -52,12 +60,17 @@
   "packageManager": "pnpm@10.28.2",
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.26.0",
+    "cross-env": "^10.1.0",
     "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.2.1",
+    "helmet": "^8.1.0",
     "zod": "4.3.6"
   },
   "devDependencies": {
     "@eslint/js": "9.39.2",
     "@modelcontextprotocol/inspector": "0.19.0",
+    "@types/express": "^5.0.6",
     "@types/node": "25.2.2",
     "@vitest/coverage-v8": "4.0.18",
     "eslint": "9.39.2",

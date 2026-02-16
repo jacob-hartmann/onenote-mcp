@@ -9,8 +9,7 @@ import type {
   ServerRequest,
   ServerNotification,
 } from "@modelcontextprotocol/sdk/types.js";
-import { createClientFromAuth } from "./client.js";
-import type { OneNoteClient } from "./client.js";
+import { OneNoteClient, createClientFromAuth } from "./client.js";
 
 export type OneNoteClientResult =
   | { success: true; client: OneNoteClient }
@@ -18,10 +17,22 @@ export type OneNoteClientResult =
 
 /**
  * Get a OneNoteClient from MCP request context.
+ *
+ * In HTTP mode the OAuth proxy stores the Microsoft access token in
+ * `extra.authInfo.extra.oneNoteToken`. When present, a client is created
+ * directly with that token. Otherwise falls back to the local OAuth flow
+ * used in STDIO mode.
  */
 export async function getOneNoteClient(
-  _extra: RequestHandlerExtra<ServerRequest, ServerNotification>
+  extra: RequestHandlerExtra<ServerRequest, ServerNotification>
 ): Promise<OneNoteClientResult> {
+  // HTTP mode: use token from OAuth proxy
+  const token = extra.authInfo?.extra?.["oneNoteToken"];
+  if (typeof token === "string") {
+    return { success: true, client: new OneNoteClient({ token }) };
+  }
+
+  // STDIO mode: fall back to local OAuth / env token
   const clientResult = await createClientFromAuth();
   if (!clientResult.success) {
     return { success: false, error: clientResult.error.message };

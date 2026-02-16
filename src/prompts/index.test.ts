@@ -3,7 +3,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerPrompts } from "./index.js";
 
 describe("registerPrompts", () => {
-  it("does not register prompts in Stage 1 scaffold", () => {
+  it("registers all 3 prompts", () => {
     const mockRegisterPrompt = vi.fn();
     const server = {
       registerPrompt: mockRegisterPrompt,
@@ -11,6 +11,6 @@ describe("registerPrompts", () => {
 
     registerPrompts(server);
 
-    expect(mockRegisterPrompt).not.toHaveBeenCalled();
+    expect(mockRegisterPrompt).toHaveBeenCalledTimes(3);
   });
 });

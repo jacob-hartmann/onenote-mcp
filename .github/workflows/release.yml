@@ -4,7 +4,11 @@ on:
   push:
     tags:
       - "v*.*.*"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release (e.g., v1.0.0)"
+        required: true
 
 permissions:
   contents: write
@@ -41,11 +45,29 @@ jobs:
       - name: Upgrade npm for trusted publishing (requires 11.5.1+)
         run: npm install -g npm@latest
 
+      - name: Resolve release tag
+        id: resolve-tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout release tag (manual dispatch)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ steps.resolve-tag.outputs.tag }}
+          persist-credentials: false
+          fetch-depth: 0
+
       - name: Verify tag matches package version
         run: |
+          RELEASE_TAG="${{ steps.resolve-tag.outputs.tag }}"
           PKG_VERSION="$(node -p "require('./package.json').version")"
-          if [ "v${PKG_VERSION}" != "${GITHUB_REF_NAME}" ]; then
-            echo "Tag (${GITHUB_REF_NAME}) does not match package.json version (v${PKG_VERSION})."
+          if [ "v${PKG_VERSION}" != "${RELEASE_TAG}" ]; then
+            echo "Tag (${RELEASE_TAG}) does not match package.json version (v${PKG_VERSION})."
             exit 1
           fi
 
@@ -54,6 +76,15 @@ jobs:
 
       - name: Rebuild required native tooling
         run: pnpm rebuild esbuild
+
+      - name: Type check
+        run: pnpm run typecheck
+
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Format check
+        run: pnpm run format:check
 
       - name: Test
         run: pnpm test

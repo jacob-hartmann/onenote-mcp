@@ -24,6 +24,20 @@ interface RequestOptions {
   body?: unknown;
 }
 
+/** Internal options for the shared _fetch method. */
+interface FetchOptions {
+  /** URL path relative to the base URL */
+  path: string;
+  /** HTTP method (defaults to GET) */
+  method: HttpMethod;
+  /** Query parameters */
+  params?: Record<string, string> | undefined;
+  /** Request headers (merged with Authorization) */
+  headers: Record<string, string>;
+  /** Serialized request body */
+  body?: string | undefined;
+}
+
 /**
  * OneNote API client.
  */
@@ -41,9 +55,14 @@ export class OneNoteClient {
     this.timeoutMs = config.timeoutMs ?? FETCH_TIMEOUT_MS;
   }
 
-  /** Make an authenticated request to Microsoft Graph. */
-  async request<T>(options: RequestOptions): Promise<OneNoteResult<T>> {
-    const { path, method = "GET", params, body } = options;
+  /**
+   * Shared HTTP lifecycle: URL construction, timeout, auth header, fetch,
+   * error mapping, and cleanup. Returns the raw Response on success.
+   */
+  private async _fetch(
+    options: FetchOptions
+  ): Promise<OneNoteResult<Response>> {
+    const { path, method, params, headers, body } = options;
 
     const url = new URL(`${this.baseUrl}${path}`);
     if (params) {
@@ -58,20 +77,19 @@ export class OneNoteClient {
     }, this.timeoutMs);
 
     try {
-      const headers: Record<string, string> = {
+      const mergedHeaders: Record<string, string> = {
         Authorization: `Bearer ${this.token}`,
-        Accept: "application/json",
+        ...headers,
       };
 
       const init: RequestInit = {
         method,
-        headers,
+        headers: mergedHeaders,
         signal: controller.signal,
       };
 
       if (body !== undefined) {
-        headers["Content-Type"] = "application/json";
-        init.body = JSON.stringify(body);
+        init.body = body;
       }
 
       const response = await fetch(url.toString(), init);
@@ -80,30 +98,184 @@ export class OneNoteClient {
         return { success: false, error: await this.mapHttpError(response) };
       }
 
-      const text = await response.text();
-      if (text.length === 0) {
-        return { success: true, data: undefined as T };
-      }
-
-      try {
-        const data = JSON.parse(text) as T;
-        return { success: true, data };
-      } catch {
-        return {
-          success: false,
-          error: new OneNoteClientError(
-            "Received non-JSON response from Microsoft Graph",
-            "UNKNOWN",
-            response.status,
-            false
-          ),
-        };
-      }
+      return { success: true, data: response };
     } catch (error) {
       return { success: false, error: this.mapNetworkError(error) };
     } finally {
       clearTimeout(timeoutId);
     }
+  }
+
+  /** Make an authenticated JSON request to Microsoft Graph. */
+  async request<T>(options: RequestOptions): Promise<OneNoteResult<T>> {
+    const { path, method = "GET", params, body } = options;
+
+    const headers: Record<string, string> = {
+      Accept: "application/json",
+    };
+
+    let serializedBody: string | undefined;
+    if (body !== undefined) {
+      headers["Content-Type"] = "application/json";
+      serializedBody = JSON.stringify(body);
+    }
+
+    const result = await this._fetch({
+      path,
+      method,
+      params,
+      headers,
+      body: serializedBody,
+    });
+
+    if (!result.success) {
+      return result;
+    }
+
+    const response = result.data;
+    const text = await response.text();
+
+    if (text.length === 0) {
+      // Empty response body (e.g. 204 No Content). Callers that expect an
+      // empty body should use requestEmpty() instead. This fallback keeps
+      // backward compatibility but the cast is intentionally opaque so that
+      // callers are nudged toward requestEmpty() for void endpoints.
+      return { success: true, data: undefined as unknown as T };
+    }
+
+    try {
+      const data = JSON.parse(text) as T;
+      return { success: true, data };
+    } catch {
+      return {
+        success: false,
+        error: new OneNoteClientError(
+          "Received non-JSON response from Microsoft Graph",
+          "UNKNOWN",
+          response.status,
+          false
+        ),
+      };
+    }
+  }
+
+  /**
+   * Make an authenticated request that returns the raw response body as a string.
+   * Used for endpoints that return non-JSON content (e.g., page HTML content).
+   */
+  async requestRaw(
+    options: RequestOptions & { accept?: string }
+  ): Promise<OneNoteResult<string>> {
+    const { path, method = "GET", params, accept } = options;
+
+    const result = await this._fetch({
+      path,
+      method,
+      params,
+      headers: {
+        Accept: accept ?? "text/html",
+      },
+    });
+
+    if (!result.success) {
+      return result;
+    }
+
+    const text = await result.data.text();
+    return { success: true, data: text };
+  }
+
+  /**
+   * Make an authenticated request with a raw string body (not JSON).
+   * Used for page creation where the body is HTML.
+   */
+  async requestHtmlBody<T>(options: {
+    path: string;
+    method?: HttpMethod;
+    body: string;
+    contentType?: string;
+  }): Promise<OneNoteResult<T>> {
+    const {
+      path,
+      method = "POST",
+      body,
+      contentType = "application/xhtml+xml",
+    } = options;
+
+    const result = await this._fetch({
+      path,
+      method,
+      headers: {
+        "Content-Type": contentType,
+        Accept: "application/json",
+      },
+      body,
+    });
+
+    if (!result.success) {
+      return result;
+    }
+
+    const response = result.data;
+    const text = await response.text();
+
+    if (text.length === 0) {
+      // See comment in request<T>() -- callers should prefer requestEmpty().
+      return { success: true, data: undefined as unknown as T };
+    }
+
+    try {
+      const data = JSON.parse(text) as T;
+      return { success: true, data };
+    } catch {
+      return {
+        success: false,
+        error: new OneNoteClientError(
+          "Received non-JSON response from Microsoft Graph",
+          "UNKNOWN",
+          response.status,
+          false
+        ),
+      };
+    }
+  }
+
+  /**
+   * Make an authenticated request that expects no response body (e.g. 204 No Content).
+   * Used for DELETE and PATCH operations that return empty responses.
+   *
+   * Returns OneNoteResult<void> -- the success case carries no data, avoiding
+   * the `undefined as T` type erasure present in request<T>().
+   */
+  async requestEmpty(options: RequestOptions): Promise<OneNoteResult<void>> {
+    const { path, method = "GET", params, body } = options;
+
+    const headers: Record<string, string> = {
+      Accept: "application/json",
+    };
+
+    let serializedBody: string | undefined;
+    if (body !== undefined) {
+      headers["Content-Type"] = "application/json";
+      serializedBody = JSON.stringify(body);
+    }
+
+    const result = await this._fetch({
+      path,
+      method,
+      params,
+      headers,
+      body: serializedBody,
+    });
+
+    if (!result.success) {
+      return result;
+    }
+
+    // Intentionally discard the response body. The caller has declared
+    // they expect no meaningful content.
+    const empty: OneNoteResult<void> = { success: true, data: undefined };
+    return empty;
   }
 
   private async mapHttpError(response: Response): Promise<OneNoteClientError> {

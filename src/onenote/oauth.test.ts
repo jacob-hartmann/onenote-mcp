@@ -33,7 +33,7 @@ describe("OAuth helpers", () => {
     const { parseScopes } = await import("./oauth.js");
     const scopes = parseScopes(undefined);
 
-    expect(scopes).toContain("Notes.Read");
+    expect(scopes).toContain("Notes.ReadWrite");
     expect(scopes).toContain("offline_access");
   });
 

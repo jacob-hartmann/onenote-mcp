@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { escapeHtml } from "./html.js";
+import { escapeHtml, buildPageHtml, stripHtml } from "./html.js";
 
 describe("escapeHtml", () => {
   it("escapes ampersands", () => {
@@ -14,5 +14,103 @@ describe("escapeHtml", () => {
 
   it("escapes double quotes", () => {
     expect(escapeHtml('say "hello"')).toBe("say &quot;hello&quot;");
+  });
+});
+
+describe("buildPageHtml", () => {
+  it("constructs valid XHTML with title and body", () => {
+    const html = buildPageHtml("My Page", "<p>Hello world</p>");
+    expect(html).toContain("<!DOCTYPE html>");
+    expect(html).toContain("<html>");
+    expect(html).toContain("<title>My Page</title>");
+    expect(html).toContain("<p>Hello world</p>");
+    expect(html).toContain("</body>");
+    expect(html).toContain("</html>");
+  });
+
+  it("escapes the title to prevent XSS", () => {
+    const html = buildPageHtml('<script>alert("xss")</script>', "<p>safe</p>");
+    expect(html).toContain(
+      "<title>&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;</title>"
+    );
+    expect(html).not.toContain("<title><script>");
+  });
+
+  it("handles missing body content", () => {
+    const html = buildPageHtml("Empty Page");
+    expect(html).toContain("<title>Empty Page</title>");
+    expect(html).toContain("<body>");
+    expect(html).toContain("</body>");
+  });
+
+  it("handles empty string body content", () => {
+    const html = buildPageHtml("Page", "");
+    expect(html).toContain("<body>");
+    expect(html).toContain("</body>");
+  });
+
+  it("escapes ampersands in title", () => {
+    const html = buildPageHtml("A & B Notes");
+    expect(html).toContain("<title>A &amp; B Notes</title>");
+  });
+});
+
+describe("stripHtml", () => {
+  it("strips HTML tags and returns plain text", () => {
+    const result = stripHtml("<p>Hello <strong>world</strong></p>");
+    expect(result).toBe("Hello world");
+  });
+
+  it("removes style blocks entirely", () => {
+    const result = stripHtml(
+      '<style type="text/css">.cls { color: red; }</style><p>Content</p>'
+    );
+    expect(result).toBe("Content");
+    expect(result).not.toContain("color");
+  });
+
+  it("removes script blocks entirely", () => {
+    const result = stripHtml(
+      '<script>alert("xss")</script><p>Safe content</p>'
+    );
+    expect(result).toBe("Safe content");
+    expect(result).not.toContain("alert");
+  });
+
+  it("collapses whitespace", () => {
+    const result = stripHtml("<div>  Hello   <span>  world  </span>  </div>");
+    expect(result).toBe("Hello world");
+  });
+
+  it("trims leading and trailing whitespace", () => {
+    const result = stripHtml("  <p>content</p>  ");
+    expect(result).toBe("content");
+  });
+
+  it("handles empty string", () => {
+    expect(stripHtml("")).toBe("");
+  });
+
+  it("handles plain text with no tags", () => {
+    expect(stripHtml("Just plain text")).toBe("Just plain text");
+  });
+
+  it("handles nested tags", () => {
+    const result = stripHtml(
+      "<div><ul><li>Item 1</li><li>Item 2</li></ul></div>"
+    );
+    expect(result).toContain("Item 1");
+    expect(result).toContain("Item 2");
+  });
+
+  it("removes multiline style blocks", () => {
+    const result = stripHtml(
+      `<style>
+        body { margin: 0; }
+        p { color: blue; }
+      </style>
+      <p>Visible text</p>`
+    );
+    expect(result).toBe("Visible text");
   });
 });

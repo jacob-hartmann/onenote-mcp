@@ -1,7 +1,7 @@
 /**
  * OneNote Module
  *
- * Exports OneNote API client, auth utilities, and types.
+ * Exports OneNote API client, auth utilities, types, and Graph API helpers.
  */
 
 export {
@@ -22,6 +22,23 @@ export {
   type OneNoteErrorCode,
   type OneNoteClientConfig,
 } from "./types.js";
+
+export type {
+  GraphIdentity,
+  GraphIdentitySet,
+  GraphExternalLink,
+  GraphNotebookLinks,
+  GraphSectionLinks,
+  GraphPageLinks,
+  GraphNotebook,
+  GraphSectionGroup,
+  GraphSection,
+  GraphPage,
+  GraphPagePreview,
+  GraphODataCollection,
+} from "./graph-types.js";
+
+export { fetchPage, fetchAllPages } from "./pagination.js";
 
 export { getOneNoteAccessToken, OneNoteAuthError } from "./auth.js";
 export type { AuthResult } from "./auth.js";

@@ -3,7 +3,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerResources } from "./index.js";
 
 describe("registerResources", () => {
-  it("does not register resources in Stage 1 scaffold", () => {
+  it("registers all 5 resources", () => {
     const mockRegisterResource = vi.fn();
     const server = {
       registerResource: mockRegisterResource,
@@ -11,6 +11,6 @@ describe("registerResources", () => {
 
     registerResources(server);
 
-    expect(mockRegisterResource).not.toHaveBeenCalled();
+    expect(mockRegisterResource).toHaveBeenCalledTimes(5);
   });
 });

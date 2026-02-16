@@ -1,15 +1,19 @@
 /**
  * MCP Resources Registration
  *
- * Stage 1 scaffold: no OneNote resource registrations yet.
+ * Registers all OneNote resources with the MCP server.
  */
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { registerNotebookResources } from "./notebooks.js";
+import { registerSectionResources } from "./sections.js";
+import { registerPageResources } from "./pages.js";
 
 /**
  * Register all resources with the MCP server.
  */
-export function registerResources(_server: McpServer): void {
-  // Intentionally empty in Stage 1 scaffold.
-  void _server;
+export function registerResources(server: McpServer): void {
+  registerNotebookResources(server);
+  registerSectionResources(server);
+  registerPageResources(server);
 }

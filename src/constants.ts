@@ -28,8 +28,42 @@ export const DEFAULT_OAUTH_SCOPES = [
   "openid",
   "profile",
   "User.Read",
-  "Notes.Read",
+  "Notes.ReadWrite",
 ];
 
 /** OAuth callback timeout in milliseconds (5 minutes) */
 export const OAUTH_CALLBACK_TIMEOUT_MS = 5 * 60 * 1000;
+
+/** Number of characters to display from session IDs in logs */
+export const SESSION_ID_DISPLAY_LENGTH = 8;
+
+/** JSON-RPC error code: Invalid request */
+export const JSONRPC_ERROR_INVALID_REQUEST = -32600;
+
+/** JSON-RPC error code: Internal error */
+export const JSONRPC_ERROR_INTERNAL = -32603;
+
+/** Default number of items per page for OneNote API requests */
+export const ONENOTE_DEFAULT_PAGE_SIZE = 20;
+
+/** Maximum number of items per page for OneNote API requests */
+export const ONENOTE_MAX_PAGE_SIZE = 100;
+
+/** Maximum safety limit for pagination loops */
+export const ONENOTE_MAX_PAGINATION_PAGES = 50;
+
+/** $select fields for notebook list responses */
+export const NOTEBOOK_SELECT_FIELDS =
+  "id,displayName,createdDateTime,lastModifiedDateTime,isDefault,isShared,userRole,links,self";
+
+/** $select fields for section list responses */
+export const SECTION_SELECT_FIELDS =
+  "id,displayName,isDefault,createdDateTime,lastModifiedDateTime,pagesUrl,links,self";
+
+/** $select fields for section group list responses */
+export const SECTION_GROUP_SELECT_FIELDS =
+  "id,displayName,createdDateTime,lastModifiedDateTime,sectionsUrl,sectionGroupsUrl,self";
+
+/** $select fields for page list responses */
+export const PAGE_SELECT_FIELDS =
+  "id,title,createdDateTime,lastModifiedDateTime,order,level,links,self";

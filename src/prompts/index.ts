@@ -1,15 +1,19 @@
 /**
  * MCP Prompts Registration
  *
- * Stage 1 scaffold: no OneNote prompt registrations yet.
+ * Registers all OneNote prompt templates with the MCP server.
  */
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { registerSummarizePage } from "./summarize-page.js";
+import { registerSearchNotes } from "./search-notes.js";
+import { registerCreateNote } from "./create-note.js";
 
 /**
  * Register all prompts with the MCP server.
  */
-export function registerPrompts(_server: McpServer): void {
-  // Intentionally empty in Stage 1 scaffold.
-  void _server;
+export function registerPrompts(server: McpServer): void {
+  registerSummarizePage(server);
+  registerSearchNotes(server);
+  registerCreateNote(server);
 }

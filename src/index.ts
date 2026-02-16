@@ -1,12 +1,13 @@
-#!/usr/bin/env node
 /**
  * OneNote MCP Server
  *
- * A Model Context Protocol (MCP) server scaffold for Microsoft OneNote.
+ * A Model Context Protocol (MCP) server for Microsoft OneNote.
  *
- * Transport: stdio (JSON-RPC over stdin/stdout)
- *
- * All logging goes to stderr to avoid corrupting JSON-RPC over stdout.
+ * Supports two transport modes:
+ * - **stdio** (default): JSON-RPC over stdin/stdout for direct LLM integration.
+ *   All logging goes to stderr to avoid corrupting JSON-RPC over stdout.
+ * - **http**: HTTP+SSE with OAuth proxy for browser-based clients (e.g., MCP Inspector).
+ *   Set `MCP_TRANSPORT=http` to enable.
  *
  * @see https://modelcontextprotocol.io/
  * @see https://learn.microsoft.com/en-us/graph/onenote-concept-overview
@@ -37,9 +38,8 @@ function createServer(): McpServer {
     { name: SERVER_NAME, version: SERVER_VERSION },
     {
       instructions:
-        "OneNote MCP scaffold server. Stage 1 includes OAuth/auth foundations " +
-        "and empty tool/resource/prompt registrars. OneNote-specific MCP " +
-        "features will be added in Stage 2.",
+        "OneNote MCP server providing tools for reading, creating, and " +
+        "managing OneNote notebooks, sections, and pages via Microsoft Graph API.",
     }
   );
 
@@ -51,19 +51,42 @@ function createServer(): McpServer {
 }
 
 async function main(): Promise<void> {
-  console.error(
-    `[${SERVER_NAME}] Starting server v${SERVER_VERSION} (stdio transport)...`
-  );
-  const server = createServer();
+  const transport = process.env["MCP_TRANSPORT"] ?? "stdio";
 
-  process.on("SIGTERM", () => {
-    void server.close();
-  });
-  process.on("SIGINT", () => {
-    void server.close();
-  });
+  if (transport === "http") {
+    const { getHttpServerConfig, startHttpServer } =
+      await import("./server/index.js");
 
-  await startStdioServer(server);
+    const config = getHttpServerConfig();
+    if (!config) {
+      console.error(
+        `[${SERVER_NAME}] HTTP transport requires ONENOTE_OAUTH_CLIENT_ID and ONENOTE_OAUTH_CLIENT_SECRET.`
+      );
+      console.error(
+        `[${SERVER_NAME}] Set these in your .env file or environment, then try again.`
+      );
+      process.exit(1);
+    }
+
+    console.error(
+      `[${SERVER_NAME}] Starting server v${SERVER_VERSION} (http transport)...`
+    );
+    await startHttpServer(createServer, config);
+  } else {
+    console.error(
+      `[${SERVER_NAME}] Starting server v${SERVER_VERSION} (stdio transport)...`
+    );
+    const server = createServer();
+
+    process.on("SIGTERM", () => {
+      void server.close();
+    });
+    process.on("SIGINT", () => {
+      void server.close();
+    });
+
+    await startStdioServer(server);
+  }
 }
 
 main().catch((error: unknown) => {
