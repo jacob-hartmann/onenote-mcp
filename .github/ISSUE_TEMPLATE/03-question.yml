@@ -1,0 +1,55 @@
+name: ❓ Question
+description: Ask a question about using onenote-mcp
+title: "[Question]: "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before opening a question, please check:
+        - README
+        - SUPPORT
+        - Existing issues
+        - Microsoft Graph OneNote docs
+        - MCP docs
+
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Prerequisites
+      options:
+        - label: I have read the README and SUPPORT docs
+          required: true
+        - label: I have searched existing issues
+          required: true
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+    validations:
+      required: true
+
+  - type: dropdown
+    id: mcp-client
+    attributes:
+      label: MCP Client
+      options:
+        - Claude Desktop
+        - Cursor
+        - Claude Code (CLI)
+        - Other
+        - Not applicable
+
+  - type: textarea
+    id: configuration
+    attributes:
+      label: Relevant configuration
+      description: |
+        Share relevant environment/config values with all secrets redacted.
+      render: shell
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context

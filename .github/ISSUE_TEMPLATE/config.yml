@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 🔒 Security Vulnerability
+    url: mailto:foss@jacobhartmann.me
+    about: Please report security issues by email. Do not open public issues for vulnerabilities.
+  - name: ❓ Support & Questions
+    url: https://github.com/jacob-hartmann/onenote-mcp/blob/main/SUPPORT.md
+    about: Read support guidance before opening issues.
+  - name: 📖 Microsoft Graph OneNote Docs
+    url: https://learn.microsoft.com/en-us/graph/api/resources/onenote-api-overview?view=graph-rest-1.0
+    about: Official OneNote API reference.
+  - name: 🔌 MCP Protocol Docs
+    url: https://modelcontextprotocol.io/
+    about: Model Context Protocol documentation.

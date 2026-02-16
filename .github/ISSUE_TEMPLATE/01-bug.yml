@@ -1,0 +1,98 @@
+name: 🐞 Bug Report
+description: Report a bug or unexpected behavior
+title: "[Bug]: "
+labels: ["bug", "triage"]
+type: bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time to report a bug.
+
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Prerequisites
+      options:
+        - label: I have searched existing issues and this is not a duplicate
+          required: true
+        - label: I have read the README and SUPPORT documentation
+          required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Package version
+      placeholder: "e.g., 0.1.0 (check with: pnpm list onenote-mcp)"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: nodejs-version
+    attributes:
+      label: Node.js version
+      options:
+        - "22.x (required minimum)"
+        - "23.x or higher"
+        - "Other (please specify)"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: mcp-client
+    attributes:
+      label: MCP Client
+      options:
+        - Claude Desktop
+        - Cursor
+        - Claude Code (CLI)
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: operating-system
+    attributes:
+      label: Operating System
+      options:
+        - Windows
+        - macOS
+        - Linux
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: |
+        Paste relevant stderr output.
+        Redact secrets, OAuth tokens, and credentials.
+      render: shell
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context

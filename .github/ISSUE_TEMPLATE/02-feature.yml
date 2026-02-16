@@ -1,0 +1,58 @@
+name: ✨ Feature Request
+description: Suggest a new feature or enhancement
+title: "[Feature]: "
+labels: ["enhancement", "triage"]
+type: enhancement
+body:
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Prerequisites
+      options:
+        - label: I have searched existing issues and this feature has not been requested
+          required: true
+        - label: I have read the README to ensure this feature doesn't already exist
+          required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: What area does this affect?
+      multiple: true
+      options:
+        - OAuth/authentication foundation
+        - OneNote API client
+        - MCP tools
+        - MCP resources
+        - MCP prompts
+        - Configuration/environment variables
+        - Documentation
+        - Testing
+        - Security
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
