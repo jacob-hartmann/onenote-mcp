@@ -9,7 +9,7 @@
  * - Refresh tokens issued by our server that wrap upstream refresh tokens
  */
 
-import { createHash } from "node:crypto";
+import { createHash, timingSafeEqual } from "node:crypto";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -89,6 +89,18 @@ const REFRESH_TOKEN_EXPIRY_SECONDS = 30 * 24 * 60 * 60;
 /** Cleanup interval in milliseconds (5 minutes) */
 const CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
 
+/** Maximum number of pending authorization requests */
+const MAX_PENDING_REQUESTS = 10_000;
+
+/** Maximum number of authorization codes */
+const MAX_AUTH_CODES = 10_000;
+
+/** Maximum number of access tokens */
+const MAX_ACCESS_TOKENS = 10_000;
+
+/** Maximum number of refresh tokens */
+const MAX_REFRESH_TOKENS = 10_000;
+
 // ---------------------------------------------------------------------------
 // Server Token Store
 // ---------------------------------------------------------------------------
@@ -141,6 +153,9 @@ export class ServerTokenStore {
    * Returns the internal state parameter to use for the upstream OAuth redirect.
    */
   storePendingRequest(request: Omit<PendingAuthRequest, "createdAt">): string {
+    if (this.pendingRequests.size >= MAX_PENDING_REQUESTS) {
+      throw new Error("Too many pending authorization requests");
+    }
     const state = crypto.randomUUID();
     this.pendingRequests.set(state, {
       ...request,
@@ -179,6 +194,9 @@ export class ServerTokenStore {
    * Returns the authorization code.
    */
   storeAuthCode(data: Omit<AuthCodeEntry, "createdAt" | "expiresAt">): string {
+    if (this.authCodes.size >= MAX_AUTH_CODES) {
+      throw new Error("Too many authorization codes");
+    }
     const code = crypto.randomUUID();
     const now = Date.now();
     this.authCodes.set(code, {
@@ -232,6 +250,9 @@ export class ServerTokenStore {
     accessToken: string;
     expiresIn: number;
   } {
+    if (this.accessTokens.size >= MAX_ACCESS_TOKENS) {
+      throw new Error("Too many access tokens");
+    }
     const token = crypto.randomUUID();
     const now = Date.now();
     this.accessTokens.set(token, {
@@ -279,6 +300,9 @@ export class ServerTokenStore {
   storeRefreshToken(
     data: Omit<RefreshTokenEntry, "createdAt" | "expiresAt">
   ): string {
+    if (this.refreshTokens.size >= MAX_REFRESH_TOKENS) {
+      throw new Error("Too many refresh tokens");
+    }
     const token = crypto.randomUUID();
     const now = Date.now();
     this.refreshTokens.set(token, {
@@ -386,7 +410,11 @@ export function verifyPkceChallenge(
   method: "S256" | "plain"
 ): boolean {
   if (method === "plain") {
-    return codeVerifier === codeChallenge;
+    // Constant-time comparison to prevent timing side-channel attacks
+    const a = Buffer.from(codeVerifier);
+    const b = Buffer.from(codeChallenge);
+    if (a.length !== b.length) return false;
+    return timingSafeEqual(a, b);
   }
 
   // S256: base64url(sha256(code_verifier)) === code_challenge
@@ -396,7 +424,12 @@ export function verifyPkceChallenge(
     .replace(/\+/g, "-")
     .replace(/\//g, "_")
     .replace(/=+$/g, "");
-  return computed === codeChallenge;
+
+  // Constant-time comparison
+  const a = Buffer.from(computed);
+  const b = Buffer.from(codeChallenge);
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
 }
 
 // ---------------------------------------------------------------------------

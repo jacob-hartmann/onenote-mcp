@@ -62,6 +62,12 @@ export async function fetchAllPages<T>(
     // The nextLink is a full URL; we need to make it relative to the base URL.
     const nextUrl = new URL(nextLink);
     currentPath = nextUrl.pathname.replace(/^\/v1\.0/, "");
+
+    // Validate the path to prevent SSRF via malicious nextLink values
+    if (!currentPath.startsWith("/me/onenote/")) {
+      break;
+    }
+
     currentParams = Object.fromEntries(nextUrl.searchParams.entries());
     pageCount++;
   }

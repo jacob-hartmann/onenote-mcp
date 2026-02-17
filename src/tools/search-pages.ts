@@ -28,6 +28,7 @@ export function registerSearchPages(server: McpServer): void {
         query: z
           .string()
           .min(1)
+          .max(1000)
           .describe("Search query string to find in page titles and content"),
         sectionId: z
           .string()

@@ -52,6 +52,25 @@ describe("getOneNoteClient", () => {
       expect(result.error).toContain("auth failed");
     }
   });
+
+  it("uses oneNoteToken from authInfo.extra in HTTP mode", async () => {
+    const httpExtra = {
+      authInfo: {
+        extra: {
+          oneNoteToken: "ms-token-from-proxy",
+        },
+      },
+    } as unknown as Parameters<typeof getOneNoteClient>[0];
+
+    const result = await getOneNoteClient(httpExtra);
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.client).toBeDefined();
+    }
+    // Should NOT call createClientFromAuth (uses direct token instead)
+    expect(createClientFromAuth).not.toHaveBeenCalled();
+  });
 });
 
 describe("getOneNoteClientOrThrow", () => {

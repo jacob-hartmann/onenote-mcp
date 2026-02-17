@@ -98,6 +98,17 @@ describe("create-section tool", () => {
     expect(result.content[0].text).toContain("Both were specified");
   });
 
+  it("returns error when displayName contains forbidden characters", async () => {
+    const callback = mockRegisterTool.mock.calls[0]![2] as Function;
+    const result = await callback(
+      { displayName: "Bad?Name", notebookId: "nb-1" },
+      mockExtra
+    );
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("forbidden characters");
+  });
+
   it("returns error on API failure", async () => {
     const mockRequest = vi.fn().mockResolvedValue({
       success: false,

@@ -36,12 +36,23 @@ import {
   type PendingAuthRequest,
   type ServerTokenStore,
 } from "./server-token-store.js";
+import { z } from "zod";
 import { FETCH_TIMEOUT_MS } from "../constants.js";
 import { saveTokens } from "../onenote/token-store.js";
+
+/** Zod schema for Microsoft token response validation in the proxy path */
+const MicrosoftTokenResponseSchema = z.object({
+  access_token: z.string(),
+  refresh_token: z.string().optional(),
+  expires_in: z.number().int().positive().optional(),
+});
 
 // ---------------------------------------------------------------------------
 // Clients Store
 // ---------------------------------------------------------------------------
+
+/** Maximum number of registered clients */
+const MAX_REGISTERED_CLIENTS = 10_000;
 
 /**
  * In-memory store for registered OAuth clients.
@@ -60,6 +71,9 @@ export class OneNoteClientsStore implements OAuthRegisteredClientsStore {
       "client_id" | "client_id_issued_at"
     >
   ): OAuthClientInformationFull {
+    if (this.clients.size >= MAX_REGISTERED_CLIENTS) {
+      throw new Error("Too many registered clients");
+    }
     const client: OAuthClientInformationFull = {
       ...clientMetadata,
       client_id: crypto.randomUUID(),
@@ -284,14 +298,29 @@ export class OneNoteProxyOAuthProvider implements OAuthServerProvider {
 
     if (!response.ok) {
       const text = await response.text();
-      throw new Error(`Microsoft token refresh failed: ${text.slice(0, 200)}`);
+      let errorMessage = `Microsoft token refresh failed (${response.status})`;
+      try {
+        const errorBody: unknown = JSON.parse(text);
+        if (typeof errorBody === "object" && errorBody !== null) {
+          const obj = errorBody as Record<string, unknown>;
+          const errorCode = typeof obj["error"] === "string" ? obj["error"] : undefined;
+          const errorDesc = typeof obj["error_description"] === "string" ? obj["error_description"] : undefined;
+          if (errorCode || errorDesc) {
+            errorMessage = `Microsoft token refresh failed (${response.status}): ${errorCode ?? "unknown_error"}${errorDesc ? ` - ${errorDesc}` : ""}`;
+          }
+        }
+      } catch {
+        // Response is not JSON, use generic message
+      }
+      throw new Error(errorMessage);
     }
 
-    const msTokens = (await response.json()) as {
-      access_token: string;
-      refresh_token?: string;
-      expires_in?: number;
-    };
+    const msTokensRaw: unknown = await response.json();
+    const msTokensParsed = MicrosoftTokenResponseSchema.safeParse(msTokensRaw);
+    if (!msTokensParsed.success) {
+      throw new Error(`Invalid Microsoft token response: ${msTokensParsed.error.message}`);
+    }
+    const msTokens = msTokensParsed.data;
 
     // Revoke old refresh token and issue new ones
     this.tokenStore.revokeRefreshToken(refreshToken);
@@ -429,11 +458,7 @@ export async function handleMicrosoftOAuthCallback(
     scope: config.scopes.join(" "),
   });
 
-  let msTokens: {
-    access_token: string;
-    refresh_token?: string;
-    expires_in?: number;
-  };
+  let msTokens: z.infer<typeof MicrosoftTokenResponseSchema>;
 
   const controller = new AbortController();
   /* v8 ignore start -- timeout callback only fires on real network delays */
@@ -468,7 +493,16 @@ export async function handleMicrosoftOAuthCallback(
       };
     }
 
-    msTokens = (await response.json()) as typeof msTokens;
+    const msTokensRaw: unknown = await response.json();
+    const msTokensParsed = MicrosoftTokenResponseSchema.safeParse(msTokensRaw);
+    if (!msTokensParsed.success) {
+      console.error("[onenote-mcp] Invalid Microsoft token response:", msTokensParsed.error.message);
+      return {
+        error: "server_error",
+        errorDescription: "Microsoft returned an unexpected token response",
+      };
+    }
+    msTokens = msTokensParsed.data;
   } catch (err) {
     console.error("[onenote-mcp] Microsoft token exchange error:", err);
     return {

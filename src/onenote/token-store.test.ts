@@ -135,4 +135,29 @@ describe("token-store", () => {
     expect(dir).toContain(".config");
     expect(dir).toContain("onenote-mcp");
   });
+
+  it("loadTokens returns undefined when file does not exist", () => {
+    process.env["ONENOTE_TOKEN_STORE_PATH"] =
+      `${process.cwd()}/.nonexistent-token-store.json`;
+
+    const loaded = loadTokens();
+    expect(loaded).toBeUndefined();
+  });
+
+  it("getTokenStorePath returns default path when env is not set", () => {
+    delete process.env["ONENOTE_TOKEN_STORE_PATH"];
+    const path = getTokenStorePath();
+    expect(path).toContain("tokens.json");
+  });
+
+  it("saveTokens creates directory when it does not exist", () => {
+    process.env["ONENOTE_TOKEN_STORE_PATH"] =
+      `${process.cwd()}/.tmp-create-dir-test/tokens.json`;
+
+    // This will actually create the directory
+    saveTokens({ accessToken: "dir-create-test" });
+
+    const loaded = loadTokens();
+    expect(loaded?.accessToken).toBe("dir-create-test");
+  });
 });

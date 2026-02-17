@@ -24,6 +24,7 @@ export function registerCreatePage(server: McpServer): void {
         title: z.string().min(1).describe("The title for the new page"),
         content: z
           .string()
+          .max(1_000_000)
           .optional()
           .describe(
             "HTML body content for the page. If omitted, creates a page with only the title. Do not include <html>, <head>, or <body> tags -- only the inner body content (e.g., '<p>Hello world</p>')."

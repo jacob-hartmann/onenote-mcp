@@ -58,18 +58,15 @@ async function hitCallback(path: string): Promise<void> {
 
 describe("getOneNoteAccessToken", () => {
   const originalEnv = { ...process.env };
-  const mockFetch = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
     process.env = { ...originalEnv };
     delete process.env["ONENOTE_ACCESS_TOKEN"];
-    vi.stubGlobal("fetch", mockFetch);
   });
 
   afterEach(() => {
     process.env = { ...originalEnv };
-    vi.unstubAllGlobals();
   });
 
   it("uses ONENOTE_ACCESS_TOKEN override first", async () => {
@@ -104,39 +101,13 @@ describe("getOneNoteAccessToken", () => {
       expiresAt: new Date(Date.now() + 1000 * 60 * 60).toISOString(),
     });
     vi.mocked(isTokenExpired).mockReturnValue(false);
-    mockFetch.mockResolvedValue({
-      status: 200,
-    });
 
     const result = await getOneNoteAccessToken();
 
     expect(result).toEqual({ accessToken: "cached-token", source: "cache" });
   });
 
-  it("keeps cached token when verification call fails", async () => {
-    vi.mocked(loadOAuthConfigFromEnv).mockReturnValue({
-      clientId: "client-id",
-      clientSecret: "client-secret",
-      redirectUri: "http://localhost:3000/callback",
-      tenant: "common",
-      scopes: ["Notes.Read"],
-      authorityBaseUrl: "https://login.microsoftonline.com",
-    });
-    vi.mocked(loadTokens).mockReturnValue({
-      accessToken: "cached-token",
-      refreshToken: "refresh-token",
-      expiresAt: new Date(Date.now() + 1000 * 60 * 60).toISOString(),
-    });
-    vi.mocked(isTokenExpired).mockReturnValue(false);
-    mockFetch.mockRejectedValue(new Error("network down"));
-
-    const result = await getOneNoteAccessToken();
-
-    expect(result).toEqual({ accessToken: "cached-token", source: "cache" });
-    expect(clearTokens).not.toHaveBeenCalled();
-  });
-
-  it("clears invalid cached token and falls back to interactive OAuth", async () => {
+  it("falls back to interactive OAuth when token is expired and no refresh token", async () => {
     const port = 39011;
 
     vi.mocked(loadOAuthConfigFromEnv).mockReturnValue({
@@ -149,11 +120,10 @@ describe("getOneNoteAccessToken", () => {
     });
     vi.mocked(loadTokens).mockReturnValue({
       accessToken: "cached-token",
-      expiresAt: new Date(Date.now() + 1000 * 60 * 60).toISOString(),
+      expiresAt: new Date(Date.now() - 1000).toISOString(),
     });
-    vi.mocked(isTokenExpired).mockReturnValue(false);
-    mockFetch.mockResolvedValue({ status: 401 });
-    vi.mocked(generateState).mockReturnValue("state-401");
+    vi.mocked(isTokenExpired).mockReturnValue(true);
+    vi.mocked(generateState).mockReturnValue("state-expired");
     vi.mocked(buildAuthorizeUrl).mockReturnValue("https://example.com/auth");
     vi.mocked(exchangeCodeForToken).mockResolvedValue({
       accessToken: "interactive-token",
@@ -163,12 +133,11 @@ describe("getOneNoteAccessToken", () => {
     const promise = getOneNoteAccessToken();
     await new Promise((resolve) => setTimeout(resolve, 100));
     await hitCallback(
-      `http://localhost:${port.toString()}/callback?code=code-123&state=state-401`
+      `http://localhost:${port.toString()}/callback?code=code-123&state=state-expired`
     );
 
     const result = await promise;
 
-    expect(clearTokens).toHaveBeenCalled();
     expect(result).toEqual({
       accessToken: "interactive-token",
       source: "interactive",
@@ -445,5 +414,87 @@ describe("getOneNoteAccessToken", () => {
     await expect(getOneNoteAccessToken()).rejects.toMatchObject({
       code: "OAUTH_FAILED",
     });
+  });
+
+  it("uses cached token without network call when not expired", async () => {
+    vi.mocked(loadOAuthConfigFromEnv).mockReturnValue({
+      clientId: "client-id",
+      clientSecret: "client-secret",
+      redirectUri: "http://localhost:3000/callback",
+      tenant: "common",
+      scopes: ["Notes.Read"],
+      authorityBaseUrl: "https://login.microsoftonline.com",
+    });
+    vi.mocked(loadTokens).mockReturnValue({
+      accessToken: "cached-token",
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60).toISOString(),
+    });
+    vi.mocked(isTokenExpired).mockReturnValue(false);
+
+    const result = await getOneNoteAccessToken();
+
+    expect(result.accessToken).toBe("cached-token");
+    expect(result.source).toBe("cache");
+    // No refresh or interactive flow should have been triggered
+    expect(refreshAccessToken).not.toHaveBeenCalled();
+  });
+
+  it("handles default port for redirect URI without explicit port (http)", async () => {
+    const port = 80;
+
+    vi.mocked(loadOAuthConfigFromEnv).mockReturnValue({
+      clientId: "client-id",
+      clientSecret: "client-secret",
+      redirectUri: `http://localhost/callback`,
+      tenant: "common",
+      scopes: ["Notes.Read"],
+      authorityBaseUrl: "https://login.microsoftonline.com",
+    });
+    vi.mocked(loadTokens).mockReturnValue(undefined);
+    vi.mocked(generateState).mockReturnValue("state-port-80");
+    vi.mocked(buildAuthorizeUrl).mockReturnValue("https://example.com/auth");
+    vi.mocked(exchangeCodeForToken).mockResolvedValue({
+      accessToken: "interactive-token-80",
+      refreshToken: "refresh-80",
+    });
+
+    const promise = getOneNoteAccessToken();
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    await hitCallback(
+      `http://localhost:${port.toString()}/callback?code=code-80&state=state-port-80`
+    );
+
+    const result = await promise;
+    expect(result.accessToken).toBe("interactive-token-80");
+  });
+
+  it("wraps non-Error thrown values during interactive OAuth as OAUTH_FAILED", async () => {
+    const port = 39017;
+
+    vi.mocked(loadOAuthConfigFromEnv).mockReturnValue({
+      clientId: "client-id",
+      clientSecret: "client-secret",
+      redirectUri: `http://localhost:${port.toString()}/callback`,
+      tenant: "common",
+      scopes: ["Notes.Read"],
+      authorityBaseUrl: "https://login.microsoftonline.com",
+    });
+    vi.mocked(loadTokens).mockReturnValue(undefined);
+    vi.mocked(generateState).mockReturnValue("state-non-error");
+    vi.mocked(buildAuthorizeUrl).mockReturnValue("https://example.com/auth");
+    vi.mocked(exchangeCodeForToken).mockRejectedValue("string-error");
+
+    const promise = getOneNoteAccessToken();
+    const rejection = expect(promise).rejects.toMatchObject({
+      code: "OAUTH_FAILED",
+      message: "Interactive OAuth failed",
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    await hitCallback(
+      `http://localhost:${port.toString()}/callback?code=code-123&state=state-non-error`
+    );
+
+    await rejection;
   });
 });

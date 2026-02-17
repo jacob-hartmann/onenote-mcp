@@ -24,12 +24,13 @@ describe("update-page tool", () => {
   });
 
   it("sends PATCH request with patches on success", async () => {
-    const mockRequest = vi.fn().mockResolvedValue({
+    const mockRequestEmpty = vi.fn().mockResolvedValue({
       success: true,
       data: undefined,
     });
     vi.mocked(getOneNoteClientOrThrow).mockResolvedValue({
-      request: mockRequest,
+      request: vi.fn(),
+      requestEmpty: mockRequestEmpty,
       requestRaw: vi.fn(),
       requestHtmlBody: vi.fn(),
     } as never);
@@ -41,7 +42,7 @@ describe("update-page tool", () => {
     const callback = mockRegisterTool.mock.calls[0]![2] as Function;
     const result = await callback({ pageId: "pg-1", patches }, mockExtra);
 
-    const callArgs = mockRequest.mock.calls[0]![0] as {
+    const callArgs = mockRequestEmpty.mock.calls[0]![0] as {
       path: string;
       method: string;
       body: unknown;
@@ -55,12 +56,13 @@ describe("update-page tool", () => {
   });
 
   it("sends multiple patches", async () => {
-    const mockRequest = vi.fn().mockResolvedValue({
+    const mockRequestEmpty = vi.fn().mockResolvedValue({
       success: true,
       data: undefined,
     });
     vi.mocked(getOneNoteClientOrThrow).mockResolvedValue({
-      request: mockRequest,
+      request: vi.fn(),
+      requestEmpty: mockRequestEmpty,
       requestRaw: vi.fn(),
       requestHtmlBody: vi.fn(),
     } as never);
@@ -73,19 +75,20 @@ describe("update-page tool", () => {
     const callback = mockRegisterTool.mock.calls[0]![2] as Function;
     const result = await callback({ pageId: "pg-1", patches }, mockExtra);
 
-    const callArgs = mockRequest.mock.calls[0]![0] as { body: unknown };
+    const callArgs = mockRequestEmpty.mock.calls[0]![0] as { body: unknown };
     expect(callArgs.body).toEqual(patches);
 
     expect(result.isError).toBeUndefined();
   });
 
   it("returns error on API failure", async () => {
-    const mockRequest = vi.fn().mockResolvedValue({
+    const mockRequestEmpty = vi.fn().mockResolvedValue({
       success: false,
       error: new OneNoteClientError("Not found", "NOT_FOUND", 404),
     });
     vi.mocked(getOneNoteClientOrThrow).mockResolvedValue({
-      request: mockRequest,
+      request: vi.fn(),
+      requestEmpty: mockRequestEmpty,
       requestRaw: vi.fn(),
       requestHtmlBody: vi.fn(),
     } as never);

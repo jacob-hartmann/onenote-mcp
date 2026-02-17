@@ -12,8 +12,12 @@ export function escapeHtml(str: string): string {
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
+
+/** Maximum content length for HTML sanitization (1MB) */
+const MAX_SANITIZE_LENGTH = 1_000_000;
 
 /**
  * Sanitize HTML content to be valid XHTML.
@@ -23,6 +27,11 @@ export function escapeHtml(str: string): string {
  * This is best-effort -- we cannot fully parse HTML, but we handle common LLM patterns.
  */
 export function sanitizeHtmlForXhtml(html: string): string {
+  if (html.length > MAX_SANITIZE_LENGTH) {
+    throw new Error(
+      `Content too large for sanitization (${html.length} characters, max ${MAX_SANITIZE_LENGTH})`
+    );
+  }
   let result = html;
   // Self-close void elements that aren't already self-closed
   const voidElements = [
@@ -70,6 +79,8 @@ export function buildPageHtml(title: string, bodyContent?: string): string {
 /**
  * Strip HTML tags from a string, returning plain text.
  * Used for generating text summaries from page HTML content.
+ * This is a best-effort utility for display purposes, not a security boundary.
+ * Edge cases (e.g., `>` inside attribute values) may produce imperfect results.
  */
 export function stripHtml(html: string): string {
   return html

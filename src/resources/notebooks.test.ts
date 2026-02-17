@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerNotebookResources } from "./notebooks.js";
+import type { ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 
 vi.mock("../onenote/client-factory.js", () => ({
   getOneNoteClientOrThrow: vi.fn(),
@@ -82,6 +83,56 @@ describe("registerNotebookResources", () => {
 
       const uri = new URL("onenote://notebooks");
       await expect(callback(uri, {})).rejects.toThrow("Unauthorized");
+    });
+  });
+
+  describe("notebook template list callback", () => {
+    it("returns resources for available notebooks", async () => {
+      registerNotebookResources(server);
+      // The second argument to registerResource is a ResourceTemplate instance
+      const templateArg = mockRegisterResource.mock.calls[1]?.[1] as ResourceTemplate;
+      const listCallback = templateArg.listCallback!;
+
+      const mockClient = {
+        request: vi.fn().mockResolvedValue({
+          success: true,
+          data: {
+            value: [
+              { id: "nb1", displayName: "Notebook 1" },
+              { id: "nb2", displayName: "Notebook 2" },
+            ],
+          },
+        }),
+      };
+      vi.mocked(getOneNoteClientOrThrow).mockResolvedValue(mockClient as never);
+
+      const result = (await listCallback({} as never)) as {
+        resources: { uri: string; name: string; mimeType: string }[];
+      };
+
+      expect(result.resources).toHaveLength(2);
+      expect(result.resources[0]?.uri).toBe("onenote://notebooks/nb1");
+      expect(result.resources[0]?.name).toBe("Notebook 1");
+    });
+
+    it("returns empty resources on API failure", async () => {
+      registerNotebookResources(server);
+      const templateArg = mockRegisterResource.mock.calls[1]?.[1] as ResourceTemplate;
+      const listCallback = templateArg.listCallback!;
+
+      const mockClient = {
+        request: vi.fn().mockResolvedValue({
+          success: false,
+          error: { message: "API Error" },
+        }),
+      };
+      vi.mocked(getOneNoteClientOrThrow).mockResolvedValue(mockClient as never);
+
+      const result = (await listCallback({} as never)) as {
+        resources: unknown[];
+      };
+
+      expect(result.resources).toEqual([]);
     });
   });
 

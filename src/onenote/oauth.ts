@@ -14,6 +14,7 @@ import {
   MICROSOFT_IDENTITY_BASE_URL,
   TOKEN_EXPIRY_BUFFER_MS,
 } from "../constants.js";
+import { validateMicrosoftUrl } from "../utils/validation.js";
 
 /** Stored token data (persisted to disk) */
 export interface OneNoteTokenData {
@@ -166,10 +167,22 @@ async function requestToken(
   const text = await response.text();
 
   if (!response.ok) {
-    throw new OneNoteOAuthError(
-      `Token request failed (${response.status}): ${text.slice(0, 500)}`,
-      code
-    );
+    // Parse error response to extract only safe fields, avoiding raw body leaks
+    let errorMessage = `Token request failed (${response.status})`;
+    try {
+      const errorBody: unknown = JSON.parse(text);
+      if (typeof errorBody === "object" && errorBody !== null) {
+        const obj = errorBody as Record<string, unknown>;
+        const errorCode = typeof obj["error"] === "string" ? obj["error"] : undefined;
+        const errorDesc = typeof obj["error_description"] === "string" ? obj["error_description"] : undefined;
+        if (errorCode || errorDesc) {
+          errorMessage = `Token request failed (${response.status}): ${errorCode ?? "unknown_error"}${errorDesc ? ` - ${errorDesc}` : ""}`;
+        }
+      }
+    } catch {
+      // Response is not JSON, use generic message
+    }
+    throw new OneNoteOAuthError(errorMessage, code);
   }
 
   let json: unknown;
@@ -218,10 +231,13 @@ function tokenResponseToData(response: OneNoteTokenResponse): OneNoteTokenData {
   return data;
 }
 
-/** Check if a token is expired or about to expire */
+/** Check if a token is expired or about to expire.
+ *  Returns true when expiresAt is missing (conservative: treat unknown expiry
+ *  as expired so a refresh is attempted rather than using a potentially stale
+ *  token). */
 export function isTokenExpired(expiresAt: string | undefined): boolean {
   if (!expiresAt) {
-    return false;
+    return true;
   }
 
   const expiresAtMs = new Date(expiresAt).getTime();
@@ -249,6 +265,8 @@ export function loadOAuthConfigFromEnv(): OneNoteOAuthConfig | undefined {
   const authorityBaseUrl =
     process.env["ONENOTE_OAUTH_AUTHORITY_BASE_URL"] ??
     MICROSOFT_IDENTITY_BASE_URL;
+
+  validateMicrosoftUrl(authorityBaseUrl, "authority");
 
   return {
     clientId,

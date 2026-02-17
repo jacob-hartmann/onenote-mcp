@@ -10,6 +10,7 @@ import {
   type OneNoteClientConfig,
   type OneNoteResult,
 } from "./types.js";
+import { validateMicrosoftUrl } from "../utils/validation.js";
 
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
@@ -52,6 +53,7 @@ export class OneNoteClient {
       /\/+$/,
       ""
     );
+    validateMicrosoftUrl(this.baseUrl, "graph");
     this.timeoutMs = config.timeoutMs ?? FETCH_TIMEOUT_MS;
   }
 

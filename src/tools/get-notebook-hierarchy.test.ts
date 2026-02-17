@@ -134,6 +134,56 @@ describe("get-notebook-hierarchy tool", () => {
     );
   });
 
+  it("handles API failure during recursive section group expansion", async () => {
+    const notebooks = [
+      {
+        id: "nb-1",
+        displayName: "Notebook 1",
+        sections: [],
+        sectionGroups: [
+          {
+            id: "sg-1",
+            displayName: "Group 1",
+            sections: [{ id: "sec-1", displayName: "Section 1" }],
+            sectionGroups: [
+              {
+                // Stub: no sections expanded (triggers follow-up call)
+                id: "sg-nested",
+                displayName: "Nested Group",
+              },
+            ],
+          },
+        ],
+      },
+    ];
+
+    const mockRequest = vi
+      .fn()
+      .mockResolvedValueOnce({
+        success: true,
+        data: { value: notebooks },
+      })
+      .mockResolvedValueOnce({
+        success: false,
+        error: { code: "SERVER_ERROR", message: "Server error" },
+      });
+
+    vi.mocked(getOneNoteClientOrThrow).mockResolvedValue({
+      request: mockRequest,
+      requestRaw: vi.fn(),
+      requestHtmlBody: vi.fn(),
+    } as never);
+
+    const callback = mockRegisterTool.mock.calls[0]![2] as Function;
+    const result = await callback({}, mockExtra);
+
+    // Should succeed overall even though recursive expand failed
+    expect(result.isError).toBeUndefined();
+    // The nested section group should remain as a stub
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed[0].sectionGroups[0].sectionGroups[0].id).toBe("sg-nested");
+  });
+
   it("returns error on API failure", async () => {
     const mockRequest = vi.fn().mockResolvedValue({
       success: false,

@@ -10,6 +10,7 @@ import {
   DEFAULT_TENANT,
   MICROSOFT_IDENTITY_BASE_URL,
 } from "../constants.js";
+import { validateMicrosoftUrl } from "../utils/validation.js";
 
 /** Default HTTP server port (3001 to avoid conflict with stdio OAuth callback on 3000) */
 const DEFAULT_SERVER_PORT = "3001";
@@ -87,6 +88,8 @@ export function getHttpServerConfig(): HttpServerConfig | undefined {
   const authorityBaseUrl =
     process.env["ONENOTE_OAUTH_AUTHORITY_BASE_URL"] ??
     MICROSOFT_IDENTITY_BASE_URL;
+
+  validateMicrosoftUrl(authorityBaseUrl, "authority");
 
   // Security: Require HTTPS for non-localhost URLs
   if (!isLocalhost(issuerUrl) && !issuerUrl.startsWith("https://")) {

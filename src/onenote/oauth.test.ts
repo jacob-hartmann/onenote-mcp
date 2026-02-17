@@ -78,10 +78,15 @@ describe("OAuth helpers", () => {
     expect(url.searchParams.get("scope")).toContain("Notes.Read");
   });
 
-  it("isTokenExpired handles missing and future expiry", async () => {
+  it("isTokenExpired treats missing expiresAt as expired", async () => {
     const { isTokenExpired } = await import("./oauth.js");
 
-    expect(isTokenExpired(undefined)).toBe(false);
+    expect(isTokenExpired(undefined)).toBe(true);
+  });
+
+  it("isTokenExpired treats future expiry as not expired", async () => {
+    const { isTokenExpired } = await import("./oauth.js");
+
     expect(
       isTokenExpired(new Date(Date.now() + 1000 * 60 * 60).toISOString())
     ).toBe(false);
@@ -213,6 +218,105 @@ describe("OAuth helpers", () => {
     await vi.advanceTimersByTimeAsync(FETCH_TIMEOUT_MS + 1);
     await rejection;
     vi.useRealTimers();
+  });
+
+  it("parseScopes returns defaults when scope string is whitespace only", async () => {
+    const { parseScopes } = await import("./oauth.js");
+    const scopes = parseScopes("   ");
+    expect(scopes).toContain("Notes.ReadWrite");
+    expect(scopes).toContain("offline_access");
+  });
+
+  it("parseScopes parses custom scope string", async () => {
+    const { parseScopes } = await import("./oauth.js");
+    const scopes = parseScopes("scope1  scope2  scope3");
+    expect(scopes).toEqual(["scope1", "scope2", "scope3"]);
+  });
+
+  it("exchangeCodeForToken returns minimal token data without optional fields", async () => {
+    const { exchangeCodeForToken } = await import("./oauth.js");
+
+    const config: OneNoteOAuthConfig = {
+      clientId: "client-id",
+      clientSecret: "client-secret",
+      redirectUri: "http://localhost:3000/callback",
+      tenant: "common",
+      scopes: ["offline_access", "Notes.Read"],
+      authorityBaseUrl: "https://login.microsoftonline.com",
+    };
+
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: vi.fn().mockResolvedValue(
+        JSON.stringify({
+          access_token: "access-only",
+          // No refresh_token, expires_in, scope, or token_type
+        })
+      ),
+    });
+
+    const tokenData = await exchangeCodeForToken(config, "auth-code");
+
+    expect(tokenData.accessToken).toBe("access-only");
+    expect(tokenData.refreshToken).toBeUndefined();
+    expect(tokenData.expiresAt).toBeUndefined();
+    expect(tokenData.scope).toBeUndefined();
+    expect(tokenData.tokenType).toBeUndefined();
+  });
+
+  it("exchangeCodeForToken throws TOKEN_EXCHANGE_FAILED on non-ok response", async () => {
+    const { exchangeCodeForToken, OneNoteOAuthError } =
+      await import("./oauth.js");
+
+    const config: OneNoteOAuthConfig = {
+      clientId: "client-id",
+      clientSecret: "client-secret",
+      redirectUri: "http://localhost:3000/callback",
+      tenant: "common",
+      scopes: ["offline_access"],
+      authorityBaseUrl: "https://login.microsoftonline.com",
+    };
+
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 400,
+      text: vi.fn().mockResolvedValue("bad request"),
+    });
+
+    await expect(
+      exchangeCodeForToken(config, "auth-code")
+    ).rejects.toBeInstanceOf(OneNoteOAuthError);
+  });
+
+  it("loadOAuthConfigFromEnv uses defaults when optional env vars are not set", async () => {
+    const { loadOAuthConfigFromEnv } = await import("./oauth.js");
+
+    process.env["ONENOTE_OAUTH_CLIENT_ID"] = "client-id";
+    process.env["ONENOTE_OAUTH_CLIENT_SECRET"] = "client-secret";
+    // Do NOT set optional env vars
+
+    const config = loadOAuthConfigFromEnv();
+
+    expect(config).toBeDefined();
+    expect(config?.tenant).toBe("common");
+    expect(config?.redirectUri).toBe("http://localhost:3000/callback");
+    expect(config?.authorityBaseUrl).toBe("https://login.microsoftonline.com");
+  });
+
+  it("loadOAuthConfigFromEnv uses custom authority base URL", async () => {
+    const { loadOAuthConfigFromEnv } = await import("./oauth.js");
+
+    process.env["ONENOTE_OAUTH_CLIENT_ID"] = "client-id";
+    process.env["ONENOTE_OAUTH_CLIENT_SECRET"] = "client-secret";
+    process.env["ONENOTE_OAUTH_AUTHORITY_BASE_URL"] =
+      "https://custom-authority.example.com";
+
+    const config = loadOAuthConfigFromEnv();
+
+    expect(config?.authorityBaseUrl).toBe(
+      "https://custom-authority.example.com"
+    );
   });
 
   it("refreshAccessToken throws on non-ok response", async () => {

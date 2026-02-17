@@ -32,7 +32,7 @@ export function registerDeletePage(server: McpServer): void {
     async ({ pageId }, extra) => {
       const client = await getOneNoteClientOrThrow(extra);
 
-      const result = await client.request<undefined>({
+      const result = await client.requestEmpty({
         path: `/me/onenote/pages/${sanitizeId(pageId, "pageId")}`,
         method: "DELETE",
       });

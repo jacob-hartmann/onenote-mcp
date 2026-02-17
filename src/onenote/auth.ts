@@ -22,11 +22,7 @@ import {
   type OneNoteTokenData,
 } from "./oauth.js";
 import { clearTokens, loadTokens, saveTokens } from "./token-store.js";
-import {
-  FETCH_TIMEOUT_MS,
-  MICROSOFT_GRAPH_BASE_URL,
-  OAUTH_CALLBACK_TIMEOUT_MS,
-} from "../constants.js";
+import { OAUTH_CALLBACK_TIMEOUT_MS } from "../constants.js";
 import { escapeHtml } from "../utils/html.js";
 
 export interface AuthResult {
@@ -48,38 +44,6 @@ export class OneNoteAuthError extends Error {
   }
 }
 
-/** Verify token validity with Microsoft Graph. */
-async function verifyToken(token: string): Promise<boolean> {
-  const baseUrl =
-    process.env["ONENOTE_GRAPH_BASE_URL"] ?? MICROSOFT_GRAPH_BASE_URL;
-
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => {
-      controller.abort();
-    }, FETCH_TIMEOUT_MS);
-
-    const response = await fetch(`${baseUrl.replace(/\/+$/, "")}/me`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: "application/json",
-      },
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeout);
-
-    if (response.status === 401) {
-      return false;
-    }
-
-    return true;
-  } catch {
-    return true;
-  }
-}
-
 /** Get a valid OneNote access token using the precedence chain. */
 export async function getOneNoteAccessToken(): Promise<AuthResult> {
   const envToken = process.env["ONENOTE_ACCESS_TOKEN"];
@@ -96,22 +60,31 @@ export async function getOneNoteAccessToken(): Promise<AuthResult> {
   }
 
   const cached = loadTokens();
+
+  // Step 1: If the cached token is not expired (local check), use it directly.
+  // No network verification needed -- the expiry buffer already accounts for
+  // clock skew and we avoid a round-trip on every single tool/resource call.
   if (cached?.accessToken && !isTokenExpired(cached.expiresAt)) {
-    console.error("[onenote-mcp] Verifying cached token...");
-    const valid = await verifyToken(cached.accessToken);
-    if (valid) {
-      console.error("[onenote-mcp] Cached token is valid.");
-      return { accessToken: cached.accessToken, source: "cache" };
-    }
-    console.error("[onenote-mcp] Cached token is invalid, clearing cache...");
-    clearTokens();
+    console.error("[onenote-mcp] Cached token is still valid (not expired).");
+    return { accessToken: cached.accessToken, source: "cache" };
   }
 
+  // Step 2: Token is expired (or missing expiresAt). Attempt refresh if we
+  // have a refresh token. Microsoft refresh tokens last up to 90 days, so
+  // this should succeed across many access-token lifetimes.
   if (cached?.refreshToken) {
     try {
-      console.error("[onenote-mcp] Refreshing access token...");
+      console.error(
+        "[onenote-mcp] Access token expired, refreshing using refresh token..."
+      );
       const refreshed = await refreshAccessToken(config, cached.refreshToken);
       saveTokens(refreshed);
+      console.error(
+        "[onenote-mcp] Token refresh successful.",
+        refreshed.expiresAt
+          ? `New token expires at ${refreshed.expiresAt}.`
+          : ""
+      );
       return { accessToken: refreshed.accessToken, source: "refresh" };
     } catch (error) {
       console.error(
@@ -122,6 +95,8 @@ export async function getOneNoteAccessToken(): Promise<AuthResult> {
     }
   }
 
+  // Step 3: No valid cached token and no (usable) refresh token -- start
+  // interactive OAuth so the user can authorize in their browser.
   console.error("[onenote-mcp] Starting interactive OAuth login...");
   const tokens = await runInteractiveOAuth(config);
   saveTokens(tokens);
@@ -171,8 +146,9 @@ async function runInteractiveOAuth(
   console.error("=".repeat(60));
   console.error("");
 
+  let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
   const timeoutPromise = new Promise<string>((_, reject) => {
-    setTimeout(() => {
+    timeoutHandle = setTimeout(() => {
       reject(
         new OneNoteAuthError("Timed out waiting for OAuth callback.", "TIMEOUT")
       );
@@ -181,6 +157,7 @@ async function runInteractiveOAuth(
 
   try {
     const code = await Promise.race([codePromise, timeoutPromise]);
+    clearTimeout(timeoutHandle);
     console.error("[onenote-mcp] Authorization code received, exchanging...");
     const tokens = await exchangeCodeForToken(config, code);
     console.error("[onenote-mcp] Token exchange successful.");
@@ -202,6 +179,7 @@ async function runInteractiveOAuth(
       "OAUTH_FAILED"
     );
   } finally {
+    clearTimeout(timeoutHandle);
     server.close();
   }
 }

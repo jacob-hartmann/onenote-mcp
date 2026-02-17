@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { escapeHtml, buildPageHtml, stripHtml } from "./html.js";
+import {
+  escapeHtml,
+  sanitizeHtmlForXhtml,
+  buildPageHtml,
+  stripHtml,
+} from "./html.js";
 
 describe("escapeHtml", () => {
   it("escapes ampersands", () => {
@@ -14,6 +19,65 @@ describe("escapeHtml", () => {
 
   it("escapes double quotes", () => {
     expect(escapeHtml('say "hello"')).toBe("say &quot;hello&quot;");
+  });
+});
+
+describe("sanitizeHtmlForXhtml", () => {
+  it("self-closes void elements like <br>", () => {
+    expect(sanitizeHtmlForXhtml("<br>")).toBe("<br/>");
+  });
+
+  it("self-closes void elements with attributes", () => {
+    expect(sanitizeHtmlForXhtml('<img src="a.png">')).toBe(
+      '<img src="a.png"/>'
+    );
+  });
+
+  it("does not double-close already self-closed void elements", () => {
+    expect(sanitizeHtmlForXhtml("<br/>")).toBe("<br/>");
+  });
+
+  it("self-closes <hr> tags", () => {
+    expect(sanitizeHtmlForXhtml("<hr>")).toBe("<hr/>");
+  });
+
+  it("self-closes <input> tags", () => {
+    expect(sanitizeHtmlForXhtml('<input type="text">')).toBe(
+      '<input type="text"/>'
+    );
+  });
+
+  it("escapes bare ampersands", () => {
+    expect(sanitizeHtmlForXhtml("a & b")).toBe("a &amp; b");
+  });
+
+  it("does not escape existing HTML entities", () => {
+    expect(sanitizeHtmlForXhtml("&amp; &lt; &#60; &#x3C;")).toBe(
+      "&amp; &lt; &#60; &#x3C;"
+    );
+  });
+
+  it("handles mixed content with void elements and bare ampersands", () => {
+    const input = "<p>Hello & world</p><br><hr>";
+    const result = sanitizeHtmlForXhtml(input);
+    expect(result).toContain("&amp;");
+    expect(result).toContain("<br/>");
+    expect(result).toContain("<hr/>");
+  });
+
+  it("handles empty string", () => {
+    expect(sanitizeHtmlForXhtml("")).toBe("");
+  });
+
+  it("handles content with no void elements or bare ampersands", () => {
+    const input = "<p>Hello world</p>";
+    expect(sanitizeHtmlForXhtml(input)).toBe("<p>Hello world</p>");
+  });
+
+  it("does not close tags followed by an explicit closing tag", () => {
+    // Edge case: <br></br> should remain as-is if pattern explicitly matches
+    const result = sanitizeHtmlForXhtml("<br></br>");
+    expect(result).toBe("<br></br>");
   });
 });
 

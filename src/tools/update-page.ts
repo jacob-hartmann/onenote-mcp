@@ -40,12 +40,14 @@ export function registerUpdatePage(server: McpServer): void {
                 ),
               content: z
                 .string()
+                .max(1_000_000)
                 .describe(
                   "HTML content string or plain text (for title replace)"
                 ),
             })
           )
           .min(1)
+          .max(100)
           .describe("Array of patch operations to apply to the page"),
       },
       annotations: {
@@ -59,7 +61,7 @@ export function registerUpdatePage(server: McpServer): void {
       const client = await getOneNoteClientOrThrow(extra);
 
       // The Graph API expects the patches array as the JSON body
-      const result = await client.request<undefined>({
+      const result = await client.requestEmpty({
         path: `/me/onenote/pages/${sanitizeId(pageId, "pageId")}/content`,
         method: "PATCH",
         body: patches,
