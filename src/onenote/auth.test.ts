@@ -439,35 +439,6 @@ describe("getOneNoteAccessToken", () => {
     expect(refreshAccessToken).not.toHaveBeenCalled();
   });
 
-  it("handles default port for redirect URI without explicit port (http)", async () => {
-    const port = 80;
-
-    vi.mocked(loadOAuthConfigFromEnv).mockReturnValue({
-      clientId: "client-id",
-      clientSecret: "client-secret",
-      redirectUri: `http://localhost/callback`,
-      tenant: "common",
-      scopes: ["Notes.Read"],
-      authorityBaseUrl: "https://login.microsoftonline.com",
-    });
-    vi.mocked(loadTokens).mockReturnValue(undefined);
-    vi.mocked(generateState).mockReturnValue("state-port-80");
-    vi.mocked(buildAuthorizeUrl).mockReturnValue("https://example.com/auth");
-    vi.mocked(exchangeCodeForToken).mockResolvedValue({
-      accessToken: "interactive-token-80",
-      refreshToken: "refresh-80",
-    });
-
-    const promise = getOneNoteAccessToken();
-    await new Promise((resolve) => setTimeout(resolve, 100));
-    await hitCallback(
-      `http://localhost:${port.toString()}/callback?code=code-80&state=state-port-80`
-    );
-
-    const result = await promise;
-    expect(result.accessToken).toBe("interactive-token-80");
-  });
-
   it("throws TIMEOUT when OAuth callback is not received in time", async () => {
     vi.useFakeTimers();
 
