@@ -1,10 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  escapeHtml,
-  sanitizeHtmlForXhtml,
-  buildPageHtml,
-  stripHtml,
-} from "./html.js";
+import { escapeHtml, sanitizeHtmlForXhtml, buildPageHtml } from "./html.js";
 
 describe("escapeHtml", () => {
   it("escapes ampersands", () => {
@@ -79,6 +74,18 @@ describe("sanitizeHtmlForXhtml", () => {
     const result = sanitizeHtmlForXhtml("<br></br>");
     expect(result).toBe("<br></br>");
   });
+
+  it("throws when content exceeds MAX_SANITIZE_LENGTH (1MB)", () => {
+    const hugeContent = "x".repeat(1_000_001);
+    expect(() => sanitizeHtmlForXhtml(hugeContent)).toThrow(
+      "Content too large for sanitization"
+    );
+  });
+
+  it("does not throw for content exactly at the limit", () => {
+    const exactContent = "x".repeat(1_000_000);
+    expect(() => sanitizeHtmlForXhtml(exactContent)).not.toThrow();
+  });
 });
 
 describe("buildPageHtml", () => {
@@ -116,65 +123,5 @@ describe("buildPageHtml", () => {
   it("escapes ampersands in title", () => {
     const html = buildPageHtml("A & B Notes");
     expect(html).toContain("<title>A &amp; B Notes</title>");
-  });
-});
-
-describe("stripHtml", () => {
-  it("strips HTML tags and returns plain text", () => {
-    const result = stripHtml("<p>Hello <strong>world</strong></p>");
-    expect(result).toBe("Hello world");
-  });
-
-  it("removes style blocks entirely", () => {
-    const result = stripHtml(
-      '<style type="text/css">.cls { color: red; }</style><p>Content</p>'
-    );
-    expect(result).toBe("Content");
-    expect(result).not.toContain("color");
-  });
-
-  it("removes script blocks entirely", () => {
-    const result = stripHtml(
-      '<script>alert("xss")</script><p>Safe content</p>'
-    );
-    expect(result).toBe("Safe content");
-    expect(result).not.toContain("alert");
-  });
-
-  it("collapses whitespace", () => {
-    const result = stripHtml("<div>  Hello   <span>  world  </span>  </div>");
-    expect(result).toBe("Hello world");
-  });
-
-  it("trims leading and trailing whitespace", () => {
-    const result = stripHtml("  <p>content</p>  ");
-    expect(result).toBe("content");
-  });
-
-  it("handles empty string", () => {
-    expect(stripHtml("")).toBe("");
-  });
-
-  it("handles plain text with no tags", () => {
-    expect(stripHtml("Just plain text")).toBe("Just plain text");
-  });
-
-  it("handles nested tags", () => {
-    const result = stripHtml(
-      "<div><ul><li>Item 1</li><li>Item 2</li></ul></div>"
-    );
-    expect(result).toContain("Item 1");
-    expect(result).toContain("Item 2");
-  });
-
-  it("removes multiline style blocks", () => {
-    const result = stripHtml(
-      `<style>
-        body { margin: 0; }
-        p { color: blue; }
-      </style>
-      <p>Visible text</p>`
-    );
-    expect(result).toBe("Visible text");
   });
 });

@@ -9,8 +9,6 @@
  * - Refresh tokens issued by our server that wrap upstream refresh tokens
  */
 
-import { createHash, timingSafeEqual } from "node:crypto";
-
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -391,45 +389,6 @@ export class ServerTokenStore {
       this.cleanupTimer = undefined;
     }
   }
-}
-
-// ---------------------------------------------------------------------------
-// PKCE Utilities
-// ---------------------------------------------------------------------------
-
-/**
- * Verify a PKCE code verifier against a code challenge.
- *
- * For `S256`, the verifier is hashed with SHA-256 and base64url-encoded,
- * then compared to the stored challenge. For `plain`, a direct string
- * comparison is performed.
- */
-export function verifyPkceChallenge(
-  codeVerifier: string,
-  codeChallenge: string,
-  method: "S256" | "plain"
-): boolean {
-  if (method === "plain") {
-    // Constant-time comparison to prevent timing side-channel attacks
-    const a = Buffer.from(codeVerifier);
-    const b = Buffer.from(codeChallenge);
-    if (a.length !== b.length) return false;
-    return timingSafeEqual(a, b);
-  }
-
-  // S256: base64url(sha256(code_verifier)) === code_challenge
-  const hash = createHash("sha256").update(codeVerifier).digest();
-  const computed = hash
-    .toString("base64")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/g, "");
-
-  // Constant-time comparison
-  const a = Buffer.from(computed);
-  const b = Buffer.from(codeChallenge);
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(a, b);
 }
 
 // ---------------------------------------------------------------------------

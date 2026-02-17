@@ -23,7 +23,10 @@ const mockExpressApp = {
 vi.mock("express", () => {
   const json = vi.fn(() => "json-middleware");
   return {
-    default: Object.assign(vi.fn(() => mockExpressApp), { json }),
+    default: Object.assign(
+      vi.fn(() => mockExpressApp),
+      { json }
+    ),
     __esModule: true,
   };
 });
@@ -46,9 +49,12 @@ vi.mock("@modelcontextprotocol/sdk/server/auth/router.js", () => ({
   mcpAuthRouter: vi.fn(() => "auth-router-middleware"),
 }));
 
-vi.mock("@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js", () => ({
-  requireBearerAuth: vi.fn(() => "bearer-auth-middleware"),
-}));
+vi.mock(
+  "@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js",
+  () => ({
+    requireBearerAuth: vi.fn(() => "bearer-auth-middleware"),
+  })
+);
 
 vi.mock("@modelcontextprotocol/sdk/server/streamableHttp.js", () => ({
   StreamableHTTPServerTransport: vi.fn().mockImplementation(function () {
@@ -87,16 +93,45 @@ vi.mock("../utils/html.js", () => ({
   escapeHtml: vi.fn((s: string) => s),
 }));
 
+/** Store the last onEvict callback for testing */
+let lastOnEvict: ((key: string, value: unknown) => void) | undefined;
+
+/** Get the captured onEvict callback */
+function getCapturedOnEvict():
+  | ((key: string, value: unknown) => void)
+  | undefined {
+  return lastOnEvict;
+}
+
 vi.mock("../utils/lru-cache.js", () => {
   class MockLRUCache {
     private map = new Map();
-    get(k: string): unknown { return this.map.get(k); }
-    set(k: string, v: unknown): void { this.map.set(k, v); }
-    has(k: string): boolean { return this.map.has(k); }
-    delete(k: string): boolean { return this.map.delete(k); }
-    get size(): number { return this.map.size; }
-    *entries(): IterableIterator<[string, unknown]> { yield* this.map.entries(); }
-    clear(): void { this.map.clear(); }
+    constructor(options?: { onEvict?: (key: string, value: unknown) => void }) {
+      if (options?.onEvict) {
+        lastOnEvict = options.onEvict;
+      }
+    }
+    get(k: string): unknown {
+      return this.map.get(k);
+    }
+    set(k: string, v: unknown): void {
+      this.map.set(k, v);
+    }
+    has(k: string): boolean {
+      return this.map.has(k);
+    }
+    delete(k: string): boolean {
+      return this.map.delete(k);
+    }
+    get size(): number {
+      return this.map.size;
+    }
+    *entries(): IterableIterator<[string, unknown]> {
+      yield* this.map.entries();
+    }
+    clear(): void {
+      this.map.clear();
+    }
   }
   return { LRUCache: MockLRUCache };
 });
@@ -153,7 +188,9 @@ function makeRes(): Record<string, unknown> {
   return res;
 }
 
-function makeReq(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+function makeReq(
+  overrides: Record<string, unknown> = {}
+): Record<string, unknown> {
   return {
     headers: {},
     query: {},
@@ -325,10 +362,7 @@ describe("startHttpServer", () => {
       const callbackCall = mockAppGet.mock.calls.find(
         (call: unknown[]) => call[0] === "/oauth/callback"
       );
-      return callbackCall![1] as (
-        req: unknown,
-        res: unknown
-      ) => Promise<void>;
+      return callbackCall![1] as (req: unknown, res: unknown) => Promise<void>;
     }
 
     it("returns 400 when Microsoft sends an error", async () => {
@@ -408,10 +442,7 @@ describe("startHttpServer", () => {
       const postCall = mockAppPost.mock.calls.find(
         (call: unknown[]) => call[0] === "/mcp"
       );
-      return postCall![2] as (
-        req: unknown,
-        res: unknown
-      ) => Promise<void>;
+      return postCall![2] as (req: unknown, res: unknown) => Promise<void>;
     }
 
     it("returns 400 when no session ID and not an init request", async () => {
@@ -454,18 +485,18 @@ describe("startHttpServer", () => {
         onclose: null as (() => void) | null,
       };
 
-      const { StreamableHTTPServerTransport } = await import(
-        "@modelcontextprotocol/sdk/server/streamableHttp.js"
-      );
-      vi.mocked(StreamableHTTPServerTransport).mockImplementation(
-        function (this: unknown, opts: unknown) {
-          const options = opts as Record<string, unknown>;
-          capturedOnInit = options["onsessioninitialized"] as (
-            sid: string
-          ) => void;
-          return mockTransport as never;
-        }
-      );
+      const { StreamableHTTPServerTransport } =
+        await import("@modelcontextprotocol/sdk/server/streamableHttp.js");
+      vi.mocked(StreamableHTTPServerTransport).mockImplementation(function (
+        this: unknown,
+        opts: unknown
+      ) {
+        const options = opts as Record<string, unknown>;
+        capturedOnInit = options["onsessioninitialized"] as (
+          sid: string
+        ) => void;
+        return mockTransport as never;
+      });
 
       await startHttpServer(mockGetServer, mockConfig);
       const postCall = mockAppPost.mock.calls.find(
@@ -506,18 +537,18 @@ describe("startHttpServer", () => {
         onclose: null as (() => void) | null,
       };
 
-      const { StreamableHTTPServerTransport } = await import(
-        "@modelcontextprotocol/sdk/server/streamableHttp.js"
-      );
-      vi.mocked(StreamableHTTPServerTransport).mockImplementation(
-        function (this: unknown, opts: unknown) {
-          const options = opts as Record<string, unknown>;
-          capturedOnInit = options["onsessioninitialized"] as (
-            sid: string
-          ) => void;
-          return mockTransport as never;
-        }
-      );
+      const { StreamableHTTPServerTransport } =
+        await import("@modelcontextprotocol/sdk/server/streamableHttp.js");
+      vi.mocked(StreamableHTTPServerTransport).mockImplementation(function (
+        this: unknown,
+        opts: unknown
+      ) {
+        const options = opts as Record<string, unknown>;
+        capturedOnInit = options["onsessioninitialized"] as (
+          sid: string
+        ) => void;
+        return mockTransport as never;
+      });
 
       await startHttpServer(mockGetServer, mockConfig);
       const postCall = mockAppPost.mock.calls.find(
@@ -627,10 +658,7 @@ describe("startHttpServer", () => {
       const getCall = mockAppGet.mock.calls.find(
         (call: unknown[]) => call[0] === "/mcp"
       );
-      return getCall![2] as (
-        req: unknown,
-        res: unknown
-      ) => Promise<void>;
+      return getCall![2] as (req: unknown, res: unknown) => Promise<void>;
     }
 
     it("returns 400 when no session ID provided", async () => {
@@ -673,18 +701,18 @@ describe("startHttpServer", () => {
         onclose: null as (() => void) | null,
       };
 
-      const { StreamableHTTPServerTransport } = await import(
-        "@modelcontextprotocol/sdk/server/streamableHttp.js"
-      );
-      vi.mocked(StreamableHTTPServerTransport).mockImplementation(
-        function (this: unknown, opts: unknown) {
-          const options = opts as Record<string, unknown>;
-          capturedOnInit = options["onsessioninitialized"] as (
-            sid: string
-          ) => void;
-          return mockTransport as never;
-        }
-      );
+      const { StreamableHTTPServerTransport } =
+        await import("@modelcontextprotocol/sdk/server/streamableHttp.js");
+      vi.mocked(StreamableHTTPServerTransport).mockImplementation(function (
+        this: unknown,
+        opts: unknown
+      ) {
+        const options = opts as Record<string, unknown>;
+        capturedOnInit = options["onsessioninitialized"] as (
+          sid: string
+        ) => void;
+        return mockTransport as never;
+      });
 
       await startHttpServer(mockGetServer, mockConfig);
 
@@ -738,10 +766,7 @@ describe("startHttpServer", () => {
       const deleteCall = mockAppDelete.mock.calls.find(
         (call: unknown[]) => call[0] === "/mcp"
       );
-      return deleteCall![2] as (
-        req: unknown,
-        res: unknown
-      ) => Promise<void>;
+      return deleteCall![2] as (req: unknown, res: unknown) => Promise<void>;
     }
 
     it("returns 400 when no session ID provided", async () => {
@@ -784,18 +809,18 @@ describe("startHttpServer", () => {
         onclose: null as (() => void) | null,
       };
 
-      const { StreamableHTTPServerTransport } = await import(
-        "@modelcontextprotocol/sdk/server/streamableHttp.js"
-      );
-      vi.mocked(StreamableHTTPServerTransport).mockImplementation(
-        function (this: unknown, opts: unknown) {
-          const options = opts as Record<string, unknown>;
-          capturedOnInit = options["onsessioninitialized"] as (
-            sid: string
-          ) => void;
-          return mockTransport as never;
-        }
-      );
+      const { StreamableHTTPServerTransport } =
+        await import("@modelcontextprotocol/sdk/server/streamableHttp.js");
+      vi.mocked(StreamableHTTPServerTransport).mockImplementation(function (
+        this: unknown,
+        opts: unknown
+      ) {
+        const options = opts as Record<string, unknown>;
+        capturedOnInit = options["onsessioninitialized"] as (
+          sid: string
+        ) => void;
+        return mockTransport as never;
+      });
 
       await startHttpServer(mockGetServer, mockConfig);
 
@@ -856,18 +881,18 @@ describe("startHttpServer", () => {
         onclose: null as (() => void) | null,
       };
 
-      const { StreamableHTTPServerTransport } = await import(
-        "@modelcontextprotocol/sdk/server/streamableHttp.js"
-      );
-      vi.mocked(StreamableHTTPServerTransport).mockImplementation(
-        function (this: unknown, opts: unknown) {
-          const options = opts as Record<string, unknown>;
-          capturedOnInit = options["onsessioninitialized"] as (
-            sid: string
-          ) => void;
-          return mockTransport as never;
-        }
-      );
+      const { StreamableHTTPServerTransport } =
+        await import("@modelcontextprotocol/sdk/server/streamableHttp.js");
+      vi.mocked(StreamableHTTPServerTransport).mockImplementation(function (
+        this: unknown,
+        opts: unknown
+      ) {
+        const options = opts as Record<string, unknown>;
+        capturedOnInit = options["onsessioninitialized"] as (
+          sid: string
+        ) => void;
+        return mockTransport as never;
+      });
 
       await startHttpServer(mockGetServer, mockConfig);
 
@@ -917,12 +942,10 @@ describe("startHttpServer", () => {
     > {
       await startHttpServer(mockGetServer, mockConfig);
       // The last app.use call with 1 argument (a function with 4 params) is the global error handler
-      const errorHandlerCall = mockAppUse.mock.calls.find(
-        (call: unknown[]) => {
-          const fn = call[0];
-          return typeof fn === "function" && fn.length === 4;
-        }
-      );
+      const errorHandlerCall = mockAppUse.mock.calls.find((call: unknown[]) => {
+        const fn = call[0];
+        return typeof fn === "function" && fn.length === 4;
+      });
       return errorHandlerCall![0] as (
         err: Error,
         req: unknown,
@@ -992,18 +1015,18 @@ describe("startHttpServer", () => {
         onclose: null as (() => void) | null,
       };
 
-      const { StreamableHTTPServerTransport } = await import(
-        "@modelcontextprotocol/sdk/server/streamableHttp.js"
-      );
-      vi.mocked(StreamableHTTPServerTransport).mockImplementation(
-        function (this: unknown, opts: unknown) {
-          const options = opts as Record<string, unknown>;
-          capturedOnInit = options["onsessioninitialized"] as (
-            sid: string
-          ) => void;
-          return mockTransport as never;
-        }
-      );
+      const { StreamableHTTPServerTransport } =
+        await import("@modelcontextprotocol/sdk/server/streamableHttp.js");
+      vi.mocked(StreamableHTTPServerTransport).mockImplementation(function (
+        this: unknown,
+        opts: unknown
+      ) {
+        const options = opts as Record<string, unknown>;
+        capturedOnInit = options["onsessioninitialized"] as (
+          sid: string
+        ) => void;
+        return mockTransport as never;
+      });
 
       await startHttpServer(mockGetServer, mockConfig);
 
@@ -1031,7 +1054,9 @@ describe("startHttpServer", () => {
     });
 
     it("SIGINT handler invokes graceful shutdown", async () => {
-      const mockProcessExit = vi.spyOn(process, "exit").mockImplementation(() => undefined as never);
+      const mockProcessExit = vi
+        .spyOn(process, "exit")
+        .mockImplementation(() => undefined as never);
 
       await startHttpServer(mockGetServer, mockConfig);
 
@@ -1054,8 +1079,261 @@ describe("startHttpServer", () => {
       mockProcessExit.mockRestore();
     });
 
+    it("cleanupSession handles transport.close() that rejects", async () => {
+      vi.mocked(isInitializeRequest).mockReturnValue(true);
+
+      let capturedOnInit: ((sid: string) => void) | null = null;
+
+      const mockTransport = {
+        sessionId: "close-reject-session",
+        handleRequest: vi.fn().mockImplementation(() => {
+          if (capturedOnInit) {
+            capturedOnInit("close-reject-session");
+            capturedOnInit = null;
+          }
+          return Promise.resolve();
+        }),
+        close: vi.fn().mockRejectedValue(new Error("close rejected")),
+        onclose: null as (() => void) | null,
+      };
+
+      const { StreamableHTTPServerTransport } =
+        await import("@modelcontextprotocol/sdk/server/streamableHttp.js");
+      vi.mocked(StreamableHTTPServerTransport).mockImplementation(function (
+        this: unknown,
+        opts: unknown
+      ) {
+        const options = opts as Record<string, unknown>;
+        capturedOnInit = options["onsessioninitialized"] as (
+          sid: string
+        ) => void;
+        return mockTransport as never;
+      });
+
+      await startHttpServer(mockGetServer, mockConfig);
+
+      // Create a session
+      const postCall = mockAppPost.mock.calls.find(
+        (call: unknown[]) => call[0] === "/mcp"
+      );
+      const postHandler = postCall![2] as (
+        req: unknown,
+        res: unknown
+      ) => Promise<void>;
+      await postHandler(
+        makeReq({
+          headers: {},
+          body: { jsonrpc: "2.0", method: "initialize" },
+        }),
+        makeRes()
+      );
+
+      // Advance past idle timeout + cleanup interval to trigger cleanupSession
+      vi.advanceTimersByTime(35 * 60 * 1000);
+
+      // The close rejection should be handled gracefully (no unhandled rejection)
+      expect(mockTransport.close).toHaveBeenCalled();
+    });
+
+    it("cleanupSession handles transport.close() that throws synchronously", async () => {
+      vi.mocked(isInitializeRequest).mockReturnValue(true);
+
+      let capturedOnInit: ((sid: string) => void) | null = null;
+
+      const mockTransport = {
+        sessionId: "close-throw-session",
+        handleRequest: vi.fn().mockImplementation(() => {
+          if (capturedOnInit) {
+            capturedOnInit("close-throw-session");
+            capturedOnInit = null;
+          }
+          return Promise.resolve();
+        }),
+        close: vi.fn().mockImplementation(() => {
+          throw new Error("close threw synchronously");
+        }),
+        onclose: null as (() => void) | null,
+      };
+
+      const { StreamableHTTPServerTransport } =
+        await import("@modelcontextprotocol/sdk/server/streamableHttp.js");
+      vi.mocked(StreamableHTTPServerTransport).mockImplementation(function (
+        this: unknown,
+        opts: unknown
+      ) {
+        const options = opts as Record<string, unknown>;
+        capturedOnInit = options["onsessioninitialized"] as (
+          sid: string
+        ) => void;
+        return mockTransport as never;
+      });
+
+      await startHttpServer(mockGetServer, mockConfig);
+
+      // Create a session
+      const postCall = mockAppPost.mock.calls.find(
+        (call: unknown[]) => call[0] === "/mcp"
+      );
+      const postHandler = postCall![2] as (
+        req: unknown,
+        res: unknown
+      ) => Promise<void>;
+      await postHandler(
+        makeReq({
+          headers: {},
+          body: { jsonrpc: "2.0", method: "initialize" },
+        }),
+        makeRes()
+      );
+
+      // Advance past idle timeout + cleanup interval
+      vi.advanceTimersByTime(35 * 60 * 1000);
+
+      // Should have handled the sync throw without crashing
+      expect(mockTransport.close).toHaveBeenCalled();
+    });
+
+    it("shutdown handles transport.close() that rejects", async () => {
+      const mockProcessExit = vi
+        .spyOn(process, "exit")
+        .mockImplementation(() => undefined as never);
+      vi.mocked(isInitializeRequest).mockReturnValue(true);
+
+      let capturedOnInit: ((sid: string) => void) | null = null;
+
+      const mockTransport = {
+        sessionId: "shutdown-reject-session",
+        handleRequest: vi.fn().mockImplementation(() => {
+          if (capturedOnInit) {
+            capturedOnInit("shutdown-reject-session");
+            capturedOnInit = null;
+          }
+          return Promise.resolve();
+        }),
+        close: vi
+          .fn()
+          .mockRejectedValue(new Error("close rejected during shutdown")),
+        onclose: null as (() => void) | null,
+      };
+
+      const { StreamableHTTPServerTransport } =
+        await import("@modelcontextprotocol/sdk/server/streamableHttp.js");
+      vi.mocked(StreamableHTTPServerTransport).mockImplementation(function (
+        this: unknown,
+        opts: unknown
+      ) {
+        const options = opts as Record<string, unknown>;
+        capturedOnInit = options["onsessioninitialized"] as (
+          sid: string
+        ) => void;
+        return mockTransport as never;
+      });
+
+      await startHttpServer(mockGetServer, mockConfig);
+
+      // Create a session
+      const postCall = mockAppPost.mock.calls.find(
+        (call: unknown[]) => call[0] === "/mcp"
+      );
+      const postHandler = postCall![2] as (
+        req: unknown,
+        res: unknown
+      ) => Promise<void>;
+      await postHandler(
+        makeReq({
+          headers: {},
+          body: { jsonrpc: "2.0", method: "initialize" },
+        }),
+        makeRes()
+      );
+
+      // Trigger SIGINT
+      const sigintCall = processOnSpy.mock.calls.find(
+        (call: unknown[]) => call[0] === "SIGINT"
+      );
+      const sigintHandler = sigintCall![1] as () => void;
+      sigintHandler();
+
+      // close should have been called (even though it rejects)
+      expect(mockTransport.close).toHaveBeenCalled();
+
+      vi.advanceTimersByTime(5000);
+      expect(mockProcessExit).toHaveBeenCalledWith(0);
+      mockProcessExit.mockRestore();
+    });
+
+    it("shutdown handles transport.close() that throws synchronously", async () => {
+      const mockProcessExit = vi
+        .spyOn(process, "exit")
+        .mockImplementation(() => undefined as never);
+      vi.mocked(isInitializeRequest).mockReturnValue(true);
+
+      let capturedOnInit: ((sid: string) => void) | null = null;
+
+      const mockTransport = {
+        sessionId: "shutdown-throw-session",
+        handleRequest: vi.fn().mockImplementation(() => {
+          if (capturedOnInit) {
+            capturedOnInit("shutdown-throw-session");
+            capturedOnInit = null;
+          }
+          return Promise.resolve();
+        }),
+        close: vi.fn().mockImplementation(() => {
+          throw new Error("close threw during shutdown");
+        }),
+        onclose: null as (() => void) | null,
+      };
+
+      const { StreamableHTTPServerTransport } =
+        await import("@modelcontextprotocol/sdk/server/streamableHttp.js");
+      vi.mocked(StreamableHTTPServerTransport).mockImplementation(function (
+        this: unknown,
+        opts: unknown
+      ) {
+        const options = opts as Record<string, unknown>;
+        capturedOnInit = options["onsessioninitialized"] as (
+          sid: string
+        ) => void;
+        return mockTransport as never;
+      });
+
+      await startHttpServer(mockGetServer, mockConfig);
+
+      // Create a session
+      const postCall = mockAppPost.mock.calls.find(
+        (call: unknown[]) => call[0] === "/mcp"
+      );
+      const postHandler = postCall![2] as (
+        req: unknown,
+        res: unknown
+      ) => Promise<void>;
+      await postHandler(
+        makeReq({
+          headers: {},
+          body: { jsonrpc: "2.0", method: "initialize" },
+        }),
+        makeRes()
+      );
+
+      // Trigger SIGTERM
+      const sigtermCall = processOnSpy.mock.calls.find(
+        (call: unknown[]) => call[0] === "SIGTERM"
+      );
+      const sigtermHandler = sigtermCall![1] as () => void;
+      sigtermHandler();
+
+      expect(mockTransport.close).toHaveBeenCalled();
+
+      vi.advanceTimersByTime(5000);
+      expect(mockProcessExit).toHaveBeenCalledWith(0);
+      mockProcessExit.mockRestore();
+    });
+
     it("SIGTERM handler invokes graceful shutdown with sessions", async () => {
-      const mockProcessExit = vi.spyOn(process, "exit").mockImplementation(() => undefined as never);
+      const mockProcessExit = vi
+        .spyOn(process, "exit")
+        .mockImplementation(() => undefined as never);
       vi.mocked(isInitializeRequest).mockReturnValue(true);
 
       let capturedOnInit: ((sid: string) => void) | null = null;
@@ -1073,18 +1351,18 @@ describe("startHttpServer", () => {
         onclose: null as (() => void) | null,
       };
 
-      const { StreamableHTTPServerTransport } = await import(
-        "@modelcontextprotocol/sdk/server/streamableHttp.js"
-      );
-      vi.mocked(StreamableHTTPServerTransport).mockImplementation(
-        function (this: unknown, opts: unknown) {
-          const options = opts as Record<string, unknown>;
-          capturedOnInit = options["onsessioninitialized"] as (
-            sid: string
-          ) => void;
-          return mockTransport as never;
-        }
-      );
+      const { StreamableHTTPServerTransport } =
+        await import("@modelcontextprotocol/sdk/server/streamableHttp.js");
+      vi.mocked(StreamableHTTPServerTransport).mockImplementation(function (
+        this: unknown,
+        opts: unknown
+      ) {
+        const options = opts as Record<string, unknown>;
+        capturedOnInit = options["onsessioninitialized"] as (
+          sid: string
+        ) => void;
+        return mockTransport as never;
+      });
 
       await startHttpServer(mockGetServer, mockConfig);
 
@@ -1152,18 +1430,18 @@ describe("startHttpServer", () => {
         },
       };
 
-      const { StreamableHTTPServerTransport } = await import(
-        "@modelcontextprotocol/sdk/server/streamableHttp.js"
-      );
-      vi.mocked(StreamableHTTPServerTransport).mockImplementation(
-        function (this: unknown, opts: unknown) {
-          const options = opts as Record<string, unknown>;
-          capturedOnInit = options["onsessioninitialized"] as (
-            sid: string
-          ) => void;
-          return mockTransport as never;
-        }
-      );
+      const { StreamableHTTPServerTransport } =
+        await import("@modelcontextprotocol/sdk/server/streamableHttp.js");
+      vi.mocked(StreamableHTTPServerTransport).mockImplementation(function (
+        this: unknown,
+        opts: unknown
+      ) {
+        const options = opts as Record<string, unknown>;
+        capturedOnInit = options["onsessioninitialized"] as (
+          sid: string
+        ) => void;
+        return mockTransport as never;
+      });
 
       await startHttpServer(mockGetServer, mockConfig);
 
@@ -1227,16 +1505,18 @@ describe("startHttpServer", () => {
         onclose: null as (() => void) | null,
       };
 
-      const { StreamableHTTPServerTransport } = await import(
-        "@modelcontextprotocol/sdk/server/streamableHttp.js"
-      );
-      vi.mocked(StreamableHTTPServerTransport).mockImplementation(
-        function (this: unknown, opts: unknown) {
-          const options = opts as Record<string, unknown>;
-          capturedSessionIdGenerator = options["sessionIdGenerator"] as () => string;
-          return mockTransport as never;
-        }
-      );
+      const { StreamableHTTPServerTransport } =
+        await import("@modelcontextprotocol/sdk/server/streamableHttp.js");
+      vi.mocked(StreamableHTTPServerTransport).mockImplementation(function (
+        this: unknown,
+        opts: unknown
+      ) {
+        const options = opts as Record<string, unknown>;
+        capturedSessionIdGenerator = options[
+          "sessionIdGenerator"
+        ] as () => string;
+        return mockTransport as never;
+      });
 
       await startHttpServer(mockGetServer, mockConfig);
 
@@ -1261,6 +1541,72 @@ describe("startHttpServer", () => {
       const id = capturedSessionIdGenerator!();
       expect(typeof id).toBe("string");
       expect(id.length).toBeGreaterThan(0);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Session eviction (onEvict callback)
+  // -------------------------------------------------------------------------
+
+  describe("session eviction", () => {
+    it("onEvict callback closes the evicted session transport", async () => {
+      await startHttpServer(mockGetServer, mockConfig);
+
+      const onEvict = getCapturedOnEvict();
+      expect(onEvict).toBeDefined();
+
+      const mockTransport = {
+        close: vi.fn().mockResolvedValue(undefined),
+      };
+
+      onEvict!("evicted-session-id", {
+        transport: mockTransport,
+        lastActivity: Date.now(),
+      });
+
+      expect(mockTransport.close).toHaveBeenCalled();
+    });
+
+    it("onEvict handles transport.close() rejection gracefully", async () => {
+      await startHttpServer(mockGetServer, mockConfig);
+
+      const onEvict = getCapturedOnEvict();
+      expect(onEvict).toBeDefined();
+
+      const mockTransport = {
+        close: vi.fn().mockRejectedValue(new Error("eviction close error")),
+      };
+
+      // Should not throw
+      onEvict!("evicted-session-id", {
+        transport: mockTransport,
+        lastActivity: Date.now(),
+      });
+
+      expect(mockTransport.close).toHaveBeenCalled();
+    });
+
+    it("onEvict handles transport.close() that throws synchronously", async () => {
+      await startHttpServer(mockGetServer, mockConfig);
+
+      const onEvict = getCapturedOnEvict();
+      expect(onEvict).toBeDefined();
+
+      const mockTransport = {
+        close: vi.fn().mockImplementation(() => {
+          throw new Error("eviction sync throw");
+        }),
+      };
+
+      // Should not throw
+      expect(() => {
+        onEvict!("evicted-session-id", {
+          transport: mockTransport,
+          lastActivity: Date.now(),
+        });
+      }).not.toThrow();
+
+      expect(mockTransport.close).toHaveBeenCalled();
     });
   });
 

@@ -75,18 +75,3 @@ export function buildPageHtml(title: string, bodyContent?: string): string {
   const body = bodyContent ? sanitizeHtmlForXhtml(bodyContent) : "";
   return `<!DOCTYPE html>\n<html>\n  <head>\n    <title>${escapedTitle}</title>\n  </head>\n  <body>\n    ${body}\n  </body>\n</html>`;
 }
-
-/**
- * Strip HTML tags from a string, returning plain text.
- * Used for generating text summaries from page HTML content.
- * This is a best-effort utility for display purposes, not a security boundary.
- * Edge cases (e.g., `>` inside attribute values) may produce imperfect results.
- */
-export function stripHtml(html: string): string {
-  return html
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
-    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}

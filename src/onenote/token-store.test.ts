@@ -160,4 +160,57 @@ describe("token-store", () => {
     const loaded = loadTokens();
     expect(loaded?.accessToken).toBe("dir-create-test");
   });
+
+  it("saveTokens throws when writeFileSync fails", () => {
+    // Use a path to a directory we cannot create a file in (invalid characters on Windows)
+    // This forces writeFileSync to throw natively
+    process.env["ONENOTE_TOKEN_STORE_PATH"] =
+      `${process.cwd()}/.tmp-save-error-test/tokens.json`;
+
+    // Use a read-only directory approach: write to a path where the parent "file" exists as a file, not a directory
+    // Create a file that blocks directory creation
+    const blockingPath = `${process.cwd()}/.tmp-save-error-blocker`;
+    fs.writeFileSync(blockingPath, "I am a file", "utf-8");
+    process.env["ONENOTE_TOKEN_STORE_PATH"] = `${blockingPath}/sub/tokens.json`;
+
+    try {
+      expect(() => {
+        saveTokens({ accessToken: "fail" });
+      }).toThrow();
+    } finally {
+      fs.rmSync(blockingPath, { force: true });
+    }
+  });
+
+  it("clearTokens handles rmSync failure gracefully by catching errors", () => {
+    // Use a path that exists but whose removal will fail
+    // Since we can't easily simulate this, we test the code path by
+    // pointing to a directory (rmSync with force: true on a dir without recursive might throw)
+    process.env["ONENOTE_TOKEN_STORE_PATH"] =
+      `${process.cwd()}/.tmp-clear-error-dir`;
+
+    // Create a directory at the token path (not a file) to trigger rmSync failure
+    if (!fs.existsSync(process.env["ONENOTE_TOKEN_STORE_PATH"])) {
+      fs.mkdirSync(process.env["ONENOTE_TOKEN_STORE_PATH"], {
+        recursive: true,
+      });
+    }
+    // Put a file inside so rmSync with force but no recursive fails
+    fs.writeFileSync(
+      `${process.env["ONENOTE_TOKEN_STORE_PATH"]}/nested.txt`,
+      "blocker",
+      "utf-8"
+    );
+
+    // Should not throw even though rmSync would fail on a non-empty directory
+    expect(() => {
+      clearTokens();
+    }).not.toThrow();
+
+    // Cleanup
+    fs.rmSync(process.env["ONENOTE_TOKEN_STORE_PATH"], {
+      recursive: true,
+      force: true,
+    });
+  });
 });

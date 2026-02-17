@@ -134,6 +134,60 @@ describe("get-notebook-hierarchy tool", () => {
     );
   });
 
+  it("handles expanded section group with no sections or sectionGroups fields", async () => {
+    const notebooks = [
+      {
+        id: "nb-1",
+        displayName: "Notebook 1",
+        sections: [],
+        sectionGroups: [
+          {
+            id: "sg-1",
+            displayName: "Group 1",
+            sections: [{ id: "sec-1", displayName: "Section 1" }],
+            sectionGroups: [
+              {
+                // Stub: no sections expanded
+                id: "sg-nested",
+                displayName: "Nested Group",
+              },
+            ],
+          },
+        ],
+      },
+    ];
+
+    const expandedGroup = {
+      id: "sg-1",
+      displayName: "Group 1",
+      // Neither sections nor sectionGroups returned by the API
+    };
+
+    const mockRequest = vi
+      .fn()
+      .mockResolvedValueOnce({
+        success: true,
+        data: { value: notebooks },
+      })
+      .mockResolvedValueOnce({
+        success: true,
+        data: expandedGroup,
+      });
+
+    vi.mocked(getOneNoteClientOrThrow).mockResolvedValue({
+      request: mockRequest,
+      requestRaw: vi.fn(),
+      requestHtmlBody: vi.fn(),
+    } as never);
+
+    const callback = mockRegisterTool.mock.calls[0]![2] as Function;
+    const result = await callback({}, mockExtra);
+
+    expect(result.isError).toBeUndefined();
+    // The request should still have been made for expansion
+    expect(mockRequest).toHaveBeenCalledTimes(2);
+  });
+
   it("handles API failure during recursive section group expansion", async () => {
     const notebooks = [
       {

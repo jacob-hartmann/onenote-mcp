@@ -342,4 +342,173 @@ describe("OAuth helpers", () => {
       refreshAccessToken(config, "refresh-token")
     ).rejects.toBeInstanceOf(OneNoteOAuthError);
   });
+
+  // ---------------------------------------------------------------------------
+  // Error response parsing in requestToken
+  // ---------------------------------------------------------------------------
+
+  it("parses error response with valid JSON containing error and error_description", async () => {
+    const { exchangeCodeForToken } = await import("./oauth.js");
+
+    const config: OneNoteOAuthConfig = {
+      clientId: "client-id",
+      clientSecret: "client-secret",
+      redirectUri: "http://localhost:3000/callback",
+      tenant: "common",
+      scopes: ["offline_access"],
+      authorityBaseUrl: "https://login.microsoftonline.com",
+    };
+
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 400,
+      text: vi.fn().mockResolvedValue(
+        JSON.stringify({
+          error: "invalid_grant",
+          error_description: "AADSTS70000: The refresh token has expired.",
+        })
+      ),
+    });
+
+    await expect(exchangeCodeForToken(config, "auth-code")).rejects.toSatisfy(
+      (err: unknown) => {
+        const e = err as { code: string; message: string };
+        return (
+          e.code === "TOKEN_EXCHANGE_FAILED" &&
+          e.message.includes("invalid_grant") &&
+          e.message.includes("AADSTS70000")
+        );
+      }
+    );
+  });
+
+  it("parses error response with error only (no error_description)", async () => {
+    const { exchangeCodeForToken } = await import("./oauth.js");
+
+    const config: OneNoteOAuthConfig = {
+      clientId: "client-id",
+      clientSecret: "client-secret",
+      redirectUri: "http://localhost:3000/callback",
+      tenant: "common",
+      scopes: ["offline_access"],
+      authorityBaseUrl: "https://login.microsoftonline.com",
+    };
+
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 400,
+      text: vi.fn().mockResolvedValue(
+        JSON.stringify({
+          error: "invalid_client",
+        })
+      ),
+    });
+
+    await expect(exchangeCodeForToken(config, "auth-code")).rejects.toSatisfy(
+      (err: unknown) => {
+        const e = err as { code: string; message: string };
+        return (
+          e.code === "TOKEN_EXCHANGE_FAILED" &&
+          e.message.includes("invalid_client") &&
+          !e.message.includes(" - ")
+        );
+      }
+    );
+  });
+
+  it("parses error response with valid JSON but no error/error_description fields", async () => {
+    const { exchangeCodeForToken } = await import("./oauth.js");
+
+    const config: OneNoteOAuthConfig = {
+      clientId: "client-id",
+      clientSecret: "client-secret",
+      redirectUri: "http://localhost:3000/callback",
+      tenant: "common",
+      scopes: ["offline_access"],
+      authorityBaseUrl: "https://login.microsoftonline.com",
+    };
+
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 500,
+      text: vi
+        .fn()
+        .mockResolvedValue(
+          JSON.stringify({ message: "Internal Server Error" })
+        ),
+    });
+
+    await expect(exchangeCodeForToken(config, "auth-code")).rejects.toSatisfy(
+      (err: unknown) => {
+        const e = err as { code: string; message: string };
+        return (
+          e.code === "TOKEN_EXCHANGE_FAILED" &&
+          e.message === "Token request failed (500)"
+        );
+      }
+    );
+  });
+
+  it("handles error response with invalid JSON (non-JSON text body)", async () => {
+    const { exchangeCodeForToken } = await import("./oauth.js");
+
+    const config: OneNoteOAuthConfig = {
+      clientId: "client-id",
+      clientSecret: "client-secret",
+      redirectUri: "http://localhost:3000/callback",
+      tenant: "common",
+      scopes: ["offline_access"],
+      authorityBaseUrl: "https://login.microsoftonline.com",
+    };
+
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 503,
+      text: vi.fn().mockResolvedValue("<html>Service Unavailable</html>"),
+    });
+
+    await expect(exchangeCodeForToken(config, "auth-code")).rejects.toSatisfy(
+      (err: unknown) => {
+        const e = err as { code: string; message: string };
+        return (
+          e.code === "TOKEN_EXCHANGE_FAILED" &&
+          e.message === "Token request failed (503)"
+        );
+      }
+    );
+  });
+
+  it("parses error response with error_description only (no error)", async () => {
+    const { exchangeCodeForToken } = await import("./oauth.js");
+
+    const config: OneNoteOAuthConfig = {
+      clientId: "client-id",
+      clientSecret: "client-secret",
+      redirectUri: "http://localhost:3000/callback",
+      tenant: "common",
+      scopes: ["offline_access"],
+      authorityBaseUrl: "https://login.microsoftonline.com",
+    };
+
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 401,
+      text: vi.fn().mockResolvedValue(
+        JSON.stringify({
+          error_description: "Token has been revoked",
+        })
+      ),
+    });
+
+    await expect(exchangeCodeForToken(config, "auth-code")).rejects.toSatisfy(
+      (err: unknown) => {
+        const e = err as { code: string; message: string };
+        return (
+          e.code === "TOKEN_EXCHANGE_FAILED" &&
+          e.message.includes("unknown_error") &&
+          e.message.includes("Token has been revoked")
+        );
+      }
+    );
+  });
 });

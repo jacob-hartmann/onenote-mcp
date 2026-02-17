@@ -234,6 +234,46 @@ describe("fetchAllPages", () => {
     expect(result.success).toBe(false);
   });
 
+  it("stops pagination when nextLink has a malicious path (not /me/onenote/)", async () => {
+    mockClient.request
+      .mockResolvedValueOnce({
+        success: true,
+        data: {
+          value: [{ id: "1" }],
+          "@odata.nextLink":
+            "https://graph.microsoft.com/v1.0/me/onenote/pages?$skip=1",
+        },
+      })
+      .mockResolvedValueOnce({
+        success: true,
+        data: {
+          value: [{ id: "2" }],
+          "@odata.nextLink":
+            "https://evil.example.com/v1.0/admin/users?$skip=2",
+        },
+      })
+      .mockResolvedValueOnce({
+        success: true,
+        data: {
+          value: [{ id: "3" }],
+        },
+      });
+
+    const result = await fetchAllPages<{ id: string }>(
+      mockClient as unknown as OneNoteClient,
+      "/me/onenote/pages"
+    );
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      // Should stop after the malicious nextLink, collecting only items from pages 1 & 2
+      expect(result.data).toHaveLength(2);
+      expect(result.data.map((d) => d.id)).toEqual(["1", "2"]);
+    }
+    // Should NOT have made a third request following the malicious link
+    expect(mockClient.request).toHaveBeenCalledTimes(2);
+  });
+
   it("parses nextLink URL to extract path and params", async () => {
     mockClient.request
       .mockResolvedValueOnce({

@@ -1,22 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  isCorsAllowedPath,
-  matchesAllowedPathBoundary,
-  getAllowedCorsPaths,
-} from "./cors.js";
-
-describe("getAllowedCorsPaths", () => {
-  it("returns a non-empty array of allowed paths", () => {
-    const paths = getAllowedCorsPaths();
-    expect(paths.length).toBeGreaterThan(0);
-    expect(paths).toContain("/authorize");
-    expect(paths).toContain("/token");
-    expect(paths).toContain("/register");
-    expect(paths).toContain("/oauth/callback");
-    expect(paths).toContain("/.well-known/oauth-authorization-server");
-    expect(paths).toContain("/.well-known/oauth-protected-resource");
-  });
-});
+import { isCorsAllowedPath, matchesAllowedPathBoundary } from "./cors.js";
 
 describe("matchesAllowedPathBoundary", () => {
   it("matches exact path", () => {

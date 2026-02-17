@@ -90,7 +90,8 @@ describe("registerNotebookResources", () => {
     it("returns resources for available notebooks", async () => {
       registerNotebookResources(server);
       // The second argument to registerResource is a ResourceTemplate instance
-      const templateArg = mockRegisterResource.mock.calls[1]?.[1] as ResourceTemplate;
+      const templateArg = mockRegisterResource.mock
+        .calls[1]?.[1] as ResourceTemplate;
       const listCallback = templateArg.listCallback!;
 
       const mockClient = {
@@ -117,7 +118,8 @@ describe("registerNotebookResources", () => {
 
     it("returns empty resources on API failure", async () => {
       registerNotebookResources(server);
-      const templateArg = mockRegisterResource.mock.calls[1]?.[1] as ResourceTemplate;
+      const templateArg = mockRegisterResource.mock
+        .calls[1]?.[1] as ResourceTemplate;
       const listCallback = templateArg.listCallback!;
 
       const mockClient = {

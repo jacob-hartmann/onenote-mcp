@@ -303,8 +303,12 @@ export class OneNoteProxyOAuthProvider implements OAuthServerProvider {
         const errorBody: unknown = JSON.parse(text);
         if (typeof errorBody === "object" && errorBody !== null) {
           const obj = errorBody as Record<string, unknown>;
-          const errorCode = typeof obj["error"] === "string" ? obj["error"] : undefined;
-          const errorDesc = typeof obj["error_description"] === "string" ? obj["error_description"] : undefined;
+          const errorCode =
+            typeof obj["error"] === "string" ? obj["error"] : undefined;
+          const errorDesc =
+            typeof obj["error_description"] === "string"
+              ? obj["error_description"]
+              : undefined;
           if (errorCode || errorDesc) {
             errorMessage = `Microsoft token refresh failed (${response.status}): ${errorCode ?? "unknown_error"}${errorDesc ? ` - ${errorDesc}` : ""}`;
           }
@@ -318,7 +322,9 @@ export class OneNoteProxyOAuthProvider implements OAuthServerProvider {
     const msTokensRaw: unknown = await response.json();
     const msTokensParsed = MicrosoftTokenResponseSchema.safeParse(msTokensRaw);
     if (!msTokensParsed.success) {
-      throw new Error(`Invalid Microsoft token response: ${msTokensParsed.error.message}`);
+      throw new Error(
+        `Invalid Microsoft token response: ${msTokensParsed.error.message}`
+      );
     }
     const msTokens = msTokensParsed.data;
 
@@ -496,7 +502,10 @@ export async function handleMicrosoftOAuthCallback(
     const msTokensRaw: unknown = await response.json();
     const msTokensParsed = MicrosoftTokenResponseSchema.safeParse(msTokensRaw);
     if (!msTokensParsed.success) {
-      console.error("[onenote-mcp] Invalid Microsoft token response:", msTokensParsed.error.message);
+      console.error(
+        "[onenote-mcp] Invalid Microsoft token response:",
+        msTokensParsed.error.message
+      );
       return {
         error: "server_error",
         errorDescription: "Microsoft returned an unexpected token response",

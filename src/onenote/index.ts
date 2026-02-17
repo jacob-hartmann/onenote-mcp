@@ -9,11 +9,7 @@ export {
   createClientFromEnv,
   createClientFromAuth,
 } from "./client.js";
-export {
-  getOneNoteClient,
-  getOneNoteClientOrThrow,
-  type OneNoteClientResult,
-} from "./client-factory.js";
+export { getOneNoteClient, getOneNoteClientOrThrow } from "./client-factory.js";
 export {
   OneNoteClientError,
   type OneNoteResult,
@@ -24,12 +20,6 @@ export {
 } from "./types.js";
 
 export type {
-  GraphIdentity,
-  GraphIdentitySet,
-  GraphExternalLink,
-  GraphNotebookLinks,
-  GraphSectionLinks,
-  GraphPageLinks,
   GraphNotebook,
   GraphSectionGroup,
   GraphSection,

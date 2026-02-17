@@ -292,7 +292,8 @@ describe("OneNoteProxyOAuthProvider", () => {
 
       await provider.authorize(client as never, params as never, res as never);
 
-      const storedRequest = mockTokenStore.storePendingRequest.mock.calls[0]![0] as Record<string, unknown>;
+      const storedRequest = mockTokenStore.storePendingRequest.mock
+        .calls[0]![0] as Record<string, unknown>;
       expect(storedRequest["clientState"]).toBeUndefined();
     });
 
@@ -314,7 +315,8 @@ describe("OneNoteProxyOAuthProvider", () => {
 
       await provider.authorize(client as never, params as never, res as never);
 
-      const storedRequest = mockTokenStore.storePendingRequest.mock.calls[0]![0] as Record<string, unknown>;
+      const storedRequest = mockTokenStore.storePendingRequest.mock
+        .calls[0]![0] as Record<string, unknown>;
       expect(storedRequest["clientState"]).toBe("my-state");
     });
   });
@@ -619,6 +621,124 @@ describe("OneNoteProxyOAuthProvider", () => {
 
       expect(tokens.access_token).toBe("proxy-access");
     });
+
+    it("throws when Microsoft returns invalid token response (Zod validation fails)", async () => {
+      mockTokenStore.getRefreshToken.mockReturnValue({
+        upstreamRefreshToken: "ms-refresh",
+        clientId: "client-1",
+        scope: "openid",
+      });
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          // Missing required access_token
+          token_type: "Bearer",
+        }),
+      });
+
+      const provider = new OneNoteProxyOAuthProvider(mockConfig);
+      const client = { client_id: "client-1" };
+
+      await expect(
+        provider.exchangeRefreshToken(client as never, "refresh-token")
+      ).rejects.toThrow("Invalid Microsoft token response");
+    });
+
+    it("parses error response with JSON containing error and error_description", async () => {
+      mockTokenStore.getRefreshToken.mockReturnValue({
+        upstreamRefreshToken: "ms-refresh",
+        clientId: "client-1",
+        scope: "openid",
+      });
+
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 400,
+        text: vi.fn().mockResolvedValue(
+          JSON.stringify({
+            error: "invalid_grant",
+            error_description: "AADSTS70000: Token expired",
+          })
+        ),
+      });
+
+      const provider = new OneNoteProxyOAuthProvider(mockConfig);
+      const client = { client_id: "client-1" };
+
+      await expect(
+        provider.exchangeRefreshToken(client as never, "refresh-token")
+      ).rejects.toThrow(/invalid_grant.*AADSTS70000/);
+    });
+
+    it("parses error response with error only (no error_description)", async () => {
+      mockTokenStore.getRefreshToken.mockReturnValue({
+        upstreamRefreshToken: "ms-refresh",
+        clientId: "client-1",
+        scope: "openid",
+      });
+
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 401,
+        text: vi.fn().mockResolvedValue(
+          JSON.stringify({
+            error: "unauthorized_client",
+          })
+        ),
+      });
+
+      const provider = new OneNoteProxyOAuthProvider(mockConfig);
+      const client = { client_id: "client-1" };
+
+      await expect(
+        provider.exchangeRefreshToken(client as never, "refresh-token")
+      ).rejects.toThrow("unauthorized_client");
+    });
+
+    it("parses error response with JSON but no error/error_description fields", async () => {
+      mockTokenStore.getRefreshToken.mockReturnValue({
+        upstreamRefreshToken: "ms-refresh",
+        clientId: "client-1",
+        scope: "openid",
+      });
+
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 500,
+        text: vi
+          .fn()
+          .mockResolvedValue(JSON.stringify({ message: "Server Error" })),
+      });
+
+      const provider = new OneNoteProxyOAuthProvider(mockConfig);
+      const client = { client_id: "client-1" };
+
+      await expect(
+        provider.exchangeRefreshToken(client as never, "refresh-token")
+      ).rejects.toThrow("Microsoft token refresh failed (500)");
+    });
+
+    it("handles non-JSON error response gracefully", async () => {
+      mockTokenStore.getRefreshToken.mockReturnValue({
+        upstreamRefreshToken: "ms-refresh",
+        clientId: "client-1",
+        scope: "openid",
+      });
+
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 503,
+        text: vi.fn().mockResolvedValue("<html>Service Unavailable</html>"),
+      });
+
+      const provider = new OneNoteProxyOAuthProvider(mockConfig);
+      const client = { client_id: "client-1" };
+
+      await expect(
+        provider.exchangeRefreshToken(client as never, "refresh-token")
+      ).rejects.toThrow("Microsoft token refresh failed (503)");
+    });
   });
 
   // -------------------------------------------------------------------------
@@ -629,10 +749,13 @@ describe("OneNoteProxyOAuthProvider", () => {
     it("revokes refresh token when hint is refresh_token", async () => {
       const provider = new OneNoteProxyOAuthProvider(mockConfig);
 
-      await provider.revokeToken({} as never, {
-        token: "refresh-xyz",
-        token_type_hint: "refresh_token",
-      } as never);
+      await provider.revokeToken(
+        {} as never,
+        {
+          token: "refresh-xyz",
+          token_type_hint: "refresh_token",
+        } as never
+      );
 
       expect(mockTokenStore.revokeRefreshToken).toHaveBeenCalledWith(
         "refresh-xyz"
@@ -643,10 +766,13 @@ describe("OneNoteProxyOAuthProvider", () => {
     it("tries both token types when hint is not refresh_token", async () => {
       const provider = new OneNoteProxyOAuthProvider(mockConfig);
 
-      await provider.revokeToken({} as never, {
-        token: "some-token",
-        token_type_hint: "access_token",
-      } as never);
+      await provider.revokeToken(
+        {} as never,
+        {
+          token: "some-token",
+          token_type_hint: "access_token",
+        } as never
+      );
 
       expect(mockTokenStore.revokeAccessToken).toHaveBeenCalledWith(
         "some-token"
@@ -659,9 +785,12 @@ describe("OneNoteProxyOAuthProvider", () => {
     it("tries both token types when no hint is provided", async () => {
       const provider = new OneNoteProxyOAuthProvider(mockConfig);
 
-      await provider.revokeToken({} as never, {
-        token: "unknown-token",
-      } as never);
+      await provider.revokeToken(
+        {} as never,
+        {
+          token: "unknown-token",
+        } as never
+      );
 
       expect(mockTokenStore.revokeAccessToken).toHaveBeenCalledWith(
         "unknown-token"
@@ -713,9 +842,8 @@ describe("handleMicrosoftOAuthCallback", () => {
   });
 
   it("returns error when pending request is not found", async () => {
-    const { handleMicrosoftOAuthCallback } = await import(
-      "./onenote-oauth-provider.js"
-    );
+    const { handleMicrosoftOAuthCallback } =
+      await import("./onenote-oauth-provider.js");
     mockTokenStore.consumePendingRequest.mockReturnValue(undefined);
 
     const result = await handleMicrosoftOAuthCallback(
@@ -732,9 +860,8 @@ describe("handleMicrosoftOAuthCallback", () => {
   });
 
   it("returns error when Microsoft token exchange fails (non-ok)", async () => {
-    const { handleMicrosoftOAuthCallback } = await import(
-      "./onenote-oauth-provider.js"
-    );
+    const { handleMicrosoftOAuthCallback } =
+      await import("./onenote-oauth-provider.js");
     mockTokenStore.consumePendingRequest.mockReturnValue({
       clientId: "client-1",
       codeChallenge: "challenge",
@@ -762,9 +889,8 @@ describe("handleMicrosoftOAuthCallback", () => {
   });
 
   it("returns error when fetch throws (network error)", async () => {
-    const { handleMicrosoftOAuthCallback } = await import(
-      "./onenote-oauth-provider.js"
-    );
+    const { handleMicrosoftOAuthCallback } =
+      await import("./onenote-oauth-provider.js");
     mockTokenStore.consumePendingRequest.mockReturnValue({
       clientId: "client-1",
       codeChallenge: "challenge",
@@ -789,9 +915,8 @@ describe("handleMicrosoftOAuthCallback", () => {
   });
 
   it("returns redirect URL on successful callback with clientState", async () => {
-    const { handleMicrosoftOAuthCallback } = await import(
-      "./onenote-oauth-provider.js"
-    );
+    const { handleMicrosoftOAuthCallback } =
+      await import("./onenote-oauth-provider.js");
     mockTokenStore.consumePendingRequest.mockReturnValue({
       clientId: "client-1",
       codeChallenge: "challenge",
@@ -827,9 +952,8 @@ describe("handleMicrosoftOAuthCallback", () => {
   });
 
   it("falls back to upstream state when clientState is not set", async () => {
-    const { handleMicrosoftOAuthCallback } = await import(
-      "./onenote-oauth-provider.js"
-    );
+    const { handleMicrosoftOAuthCallback } =
+      await import("./onenote-oauth-provider.js");
     mockTokenStore.consumePendingRequest.mockReturnValue({
       clientId: "client-1",
       codeChallenge: "challenge",
@@ -861,10 +985,44 @@ describe("handleMicrosoftOAuthCallback", () => {
     }
   });
 
-  it("handles saveTokens failure gracefully", async () => {
-    const { handleMicrosoftOAuthCallback } = await import(
-      "./onenote-oauth-provider.js"
+  it("returns error when Microsoft returns invalid token response (Zod fails)", async () => {
+    const { handleMicrosoftOAuthCallback } =
+      await import("./onenote-oauth-provider.js");
+    mockTokenStore.consumePendingRequest.mockReturnValue({
+      clientId: "client-1",
+      codeChallenge: "challenge",
+      codeChallengeMethod: "S256",
+      redirectUri: "http://localhost:3000/callback",
+      scope: "openid",
+    });
+
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        // Missing required access_token field
+        token_type: "Bearer",
+      }),
+    });
+
+    const result = await handleMicrosoftOAuthCallback(
+      mockConfig,
+      mockTokenStore as never,
+      "ms-code",
+      "ms-state"
     );
+
+    expect("error" in result).toBe(true);
+    if ("error" in result) {
+      expect(result.error).toBe("server_error");
+      expect(result.errorDescription).toContain(
+        "Microsoft returned an unexpected token response"
+      );
+    }
+  });
+
+  it("handles saveTokens failure gracefully", async () => {
+    const { handleMicrosoftOAuthCallback } =
+      await import("./onenote-oauth-provider.js");
     const { saveTokens } = await import("../onenote/token-store.js");
     vi.mocked(saveTokens).mockImplementation(() => {
       throw new Error("disk full");

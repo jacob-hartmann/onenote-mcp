@@ -173,8 +173,12 @@ async function requestToken(
       const errorBody: unknown = JSON.parse(text);
       if (typeof errorBody === "object" && errorBody !== null) {
         const obj = errorBody as Record<string, unknown>;
-        const errorCode = typeof obj["error"] === "string" ? obj["error"] : undefined;
-        const errorDesc = typeof obj["error_description"] === "string" ? obj["error_description"] : undefined;
+        const errorCode =
+          typeof obj["error"] === "string" ? obj["error"] : undefined;
+        const errorDesc =
+          typeof obj["error_description"] === "string"
+            ? obj["error_description"]
+            : undefined;
         if (errorCode || errorDesc) {
           errorMessage = `Token request failed (${response.status}): ${errorCode ?? "unknown_error"}${errorDesc ? ` - ${errorDesc}` : ""}`;
         }

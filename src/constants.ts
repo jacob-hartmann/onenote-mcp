@@ -43,12 +43,6 @@ export const JSONRPC_ERROR_INVALID_REQUEST = -32600;
 /** JSON-RPC error code: Internal error */
 export const JSONRPC_ERROR_INTERNAL = -32603;
 
-/** Default number of items per page for OneNote API requests */
-export const ONENOTE_DEFAULT_PAGE_SIZE = 20;
-
-/** Maximum number of items per page for OneNote API requests */
-export const ONENOTE_MAX_PAGE_SIZE = 100;
-
 /** Maximum safety limit for pagination loops */
 export const ONENOTE_MAX_PAGINATION_PAGES = 50;
 

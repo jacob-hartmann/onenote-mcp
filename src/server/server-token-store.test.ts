@@ -1,9 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import {
-  ServerTokenStore,
-  getServerTokenStore,
-  verifyPkceChallenge,
-} from "./server-token-store.js";
+import { ServerTokenStore, getServerTokenStore } from "./server-token-store.js";
 
 describe("ServerTokenStore", () => {
   let store: ServerTokenStore;
@@ -355,6 +351,141 @@ describe("ServerTokenStore", () => {
   });
 
   // ---------------------------------------------------------------------------
+  // Map size cap enforcement
+  // ---------------------------------------------------------------------------
+
+  describe("size caps", () => {
+    it("throws when pending requests map is full", () => {
+      // Access private pendingRequests map and simulate it being at capacity
+      const privateStore = store as unknown as {
+        pendingRequests: Map<string, unknown>;
+      };
+      // Fake the size to be at the limit (10_000)
+      Object.defineProperty(privateStore.pendingRequests, "size", {
+        get: () => 10_000,
+        configurable: true,
+      });
+
+      expect(() =>
+        store.storePendingRequest({
+          clientId: "client-1",
+          codeChallenge: "challenge",
+          codeChallengeMethod: "S256",
+          redirectUri: "http://localhost:3000/callback",
+          scope: undefined,
+        })
+      ).toThrow("Too many pending authorization requests");
+    });
+
+    it("throws when auth codes map is full", () => {
+      const privateStore = store as unknown as {
+        authCodes: Map<string, unknown>;
+      };
+      Object.defineProperty(privateStore.authCodes, "size", {
+        get: () => 10_000,
+        configurable: true,
+      });
+
+      expect(() =>
+        store.storeAuthCode({
+          clientId: "client-1",
+          codeChallenge: "challenge",
+          codeChallengeMethod: "S256",
+          redirectUri: "http://localhost:3000/callback",
+          upstreamAccessToken: "token",
+          upstreamRefreshToken: undefined,
+          scope: undefined,
+        })
+      ).toThrow("Too many authorization codes");
+    });
+
+    it("throws when access tokens map is full", () => {
+      const privateStore = store as unknown as {
+        accessTokens: Map<string, unknown>;
+      };
+      Object.defineProperty(privateStore.accessTokens, "size", {
+        get: () => 10_000,
+        configurable: true,
+      });
+
+      expect(() =>
+        store.storeAccessToken({
+          upstreamAccessToken: "ms-token",
+          upstreamRefreshToken: undefined,
+          clientId: "client-1",
+          scope: undefined,
+        })
+      ).toThrow("Too many access tokens");
+    });
+
+    it("throws when refresh tokens map is full", () => {
+      const privateStore = store as unknown as {
+        refreshTokens: Map<string, unknown>;
+      };
+      Object.defineProperty(privateStore.refreshTokens, "size", {
+        get: () => 10_000,
+        configurable: true,
+      });
+
+      expect(() =>
+        store.storeRefreshToken({
+          upstreamRefreshToken: "ms-refresh",
+          clientId: "client-1",
+          scope: undefined,
+        })
+      ).toThrow("Too many refresh tokens");
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Cleanup edge cases
+  // ---------------------------------------------------------------------------
+
+  describe("cleanup edge cases", () => {
+    it("cleanup removes expired refresh tokens", () => {
+      const token = store.storeRefreshToken({
+        upstreamRefreshToken: "ms-refresh",
+        clientId: "client-1",
+        scope: undefined,
+      });
+
+      // Advance past 30-day expiry
+      vi.advanceTimersByTime(31 * 24 * 60 * 60 * 1000);
+
+      store.cleanup();
+
+      expect(store.getRefreshToken(token)).toBeUndefined();
+    });
+
+    it("cleanup does not remove non-expired entries", () => {
+      const state = store.storePendingRequest({
+        clientId: "client-1",
+        codeChallenge: "challenge",
+        codeChallengeMethod: "S256",
+        redirectUri: "http://localhost:3000/callback",
+        scope: undefined,
+      });
+
+      const { accessToken } = store.storeAccessToken({
+        upstreamAccessToken: "ms-token",
+        upstreamRefreshToken: undefined,
+        clientId: "client-1",
+        scope: undefined,
+      });
+
+      // Advance only 1 minute -- nothing should expire yet
+      vi.advanceTimersByTime(60 * 1000);
+
+      store.cleanup();
+
+      // Both should still be valid
+      const consumed = store.consumePendingRequest(state);
+      expect(consumed).toBeDefined();
+      expect(store.getAccessToken(accessToken)).toBeDefined();
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // Dispose
   // ---------------------------------------------------------------------------
 
@@ -364,41 +495,6 @@ describe("ServerTokenStore", () => {
       store.dispose();
       store.dispose();
     });
-  });
-});
-
-// ---------------------------------------------------------------------------
-// verifyPkceChallenge
-// ---------------------------------------------------------------------------
-
-describe("verifyPkceChallenge", () => {
-  it('verifies a valid "plain" challenge', () => {
-    expect(verifyPkceChallenge("my-verifier", "my-verifier", "plain")).toBe(
-      true
-    );
-  });
-
-  it('rejects an invalid "plain" challenge', () => {
-    expect(verifyPkceChallenge("my-verifier", "wrong", "plain")).toBe(false);
-  });
-
-  it('verifies a valid "S256" challenge', () => {
-    // Known test vector: code_verifier "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
-    // S256 challenge = base64url(sha256("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"))
-    // = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
-    expect(
-      verifyPkceChallenge(
-        "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk",
-        "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
-        "S256"
-      )
-    ).toBe(true);
-  });
-
-  it('rejects an invalid "S256" challenge', () => {
-    expect(verifyPkceChallenge("my-verifier", "wrong-challenge", "S256")).toBe(
-      false
-    );
   });
 });
 

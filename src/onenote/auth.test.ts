@@ -468,6 +468,35 @@ describe("getOneNoteAccessToken", () => {
     expect(result.accessToken).toBe("interactive-token-80");
   });
 
+  it("throws TIMEOUT when OAuth callback is not received in time", async () => {
+    vi.useFakeTimers();
+
+    const port = 39018;
+
+    vi.mocked(loadOAuthConfigFromEnv).mockReturnValue({
+      clientId: "client-id",
+      clientSecret: "client-secret",
+      redirectUri: `http://localhost:${port.toString()}/callback`,
+      tenant: "common",
+      scopes: ["Notes.Read"],
+      authorityBaseUrl: "https://login.microsoftonline.com",
+    });
+    vi.mocked(loadTokens).mockReturnValue(undefined);
+    vi.mocked(generateState).mockReturnValue("state-timeout");
+    vi.mocked(buildAuthorizeUrl).mockReturnValue("https://example.com/auth");
+
+    const promise = getOneNoteAccessToken();
+    const rejection = expect(promise).rejects.toMatchObject({
+      code: "TIMEOUT",
+    });
+
+    // Advance past the OAUTH_CALLBACK_TIMEOUT_MS (5 minutes)
+    await vi.advanceTimersByTimeAsync(6 * 60 * 1000);
+
+    await rejection;
+    vi.useRealTimers();
+  });
+
   it("wraps non-Error thrown values during interactive OAuth as OAUTH_FAILED", async () => {
     const port = 39017;
 

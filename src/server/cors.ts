@@ -17,17 +17,6 @@ const CORS_ALLOWED_PATHS = [
 ] as const;
 
 /**
- * Returns the list of OAuth endpoint paths that are allowed for CORS.
- *
- * These are the paths mounted by `mcpAuthRouter` plus the custom Microsoft
- * OAuth callback route. All other paths (e.g. `/mcp`) are blocked from
- * cross-origin access.
- */
-export function getAllowedCorsPaths(): readonly string[] {
-  return CORS_ALLOWED_PATHS;
-}
-
-/**
  * Boundary-aware "startsWith" that only matches the allowed path when the
  * request path is either exactly the allowed path or is a subpath.
  *

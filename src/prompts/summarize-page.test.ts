@@ -178,6 +178,35 @@ describe("registerSummarizePage", () => {
       );
     });
 
+    it("returns error when both metadata and content fail", async () => {
+      registerSummarizePage(server);
+      const callback = mockRegisterPrompt.mock.calls[0]?.[2] as (
+        args: { pageId: string },
+        extra: unknown
+      ) => Promise<unknown>;
+
+      const mockClient = {
+        request: vi.fn().mockResolvedValue({
+          success: false,
+          error: { message: "Metadata not found" },
+        }),
+        requestRaw: vi.fn().mockResolvedValue({
+          success: false,
+          error: { message: "Content not found" },
+        }),
+      };
+      vi.mocked(getOneNoteClientOrThrow).mockResolvedValue(mockClient as never);
+
+      const result = (await callback({ pageId: "bad-id" }, {})) as {
+        messages: { role: string; content: { type: string; text: string } }[];
+      };
+
+      expect(result.messages).toHaveLength(1);
+      expect(result.messages[0]?.content.text).toContain("Error");
+      // When metadata fails, the failedPart should mention metadata
+      expect(result.messages[0]?.content.text).toContain("metadata");
+    });
+
     it("handles missing parentSection gracefully", async () => {
       registerSummarizePage(server);
       const callback = mockRegisterPrompt.mock.calls[0]?.[2] as (
