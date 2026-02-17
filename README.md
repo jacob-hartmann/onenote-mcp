@@ -3,7 +3,6 @@
 [![CI](https://github.com/jacob-hartmann/onenote-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/jacob-hartmann/onenote-mcp/actions/workflows/ci.yml)
 [![Coverage Status](https://coveralls.io/repos/github/jacob-hartmann/onenote-mcp/badge.svg?branch=main)](https://coveralls.io/github/jacob-hartmann/onenote-mcp?branch=main)
 [![CodeQL](https://github.com/jacob-hartmann/onenote-mcp/actions/workflows/codeql.yml/badge.svg)](https://github.com/jacob-hartmann/onenote-mcp/actions/workflows/codeql.yml)
-[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/jacob-hartmann/onenote-mcp/badge)](https://securityscorecards.dev/viewer/?uri=github.com/jacob-hartmann/onenote-mcp)
 [![npm version](https://img.shields.io/npm/v/onenote-mcp)](https://www.npmjs.com/package/onenote-mcp)
 [![npm downloads](https://img.shields.io/npm/dm/onenote-mcp)](https://www.npmjs.com/package/onenote-mcp)
 [![License](https://img.shields.io/github/license/jacob-hartmann/onenote-mcp)](LICENSE)
