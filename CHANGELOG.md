@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-02-22
+
 ### Added
 
 - 16 MCP tools for OneNote read/write access:
@@ -36,7 +38,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Infrastructure
 
-- Initial Stage 1 repository scaffold
 - STDIO server entrypoint and MCP registration boundaries
 - OAuth, token-store, auth, and client foundations for OneNote
 - CI/CD, security workflows, and release automation

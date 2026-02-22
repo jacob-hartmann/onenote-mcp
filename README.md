@@ -226,4 +226,4 @@ See [SUPPORT.md](./SUPPORT.md).
 
 ## License
 
-MIT — see [LICENSE](./LICENSE).
+MIT © Jacob Hartmann

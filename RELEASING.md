@@ -13,9 +13,9 @@ This repo uses git tags to drive releases and publishes to npm under `onenote-mc
 ```bash
 git switch main
 git pull --ff-only
-pnpm version 0.1.0-rc.1 -m "chore(release): v%s"
+pnpm version 1.1.0-rc.1 -m "chore(release): v%s"
 git push origin main
-git push origin v0.1.0-rc.1
+git push origin v1.1.0-rc.1
 ```
 
 CI publishes prereleases with `--tag rc`.
@@ -25,9 +25,9 @@ CI publishes prereleases with `--tag rc`.
 ```bash
 git switch main
 git pull --ff-only
-pnpm version 0.1.0 -m "chore(release): v%s"
+pnpm version 1.1.0 -m "chore(release): v%s"
 git push origin main
-git push origin v0.1.0
+git push origin v1.1.0
 ```
 
 ## Local Validation
