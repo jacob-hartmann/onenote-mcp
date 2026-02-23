@@ -1,6 +1,6 @@
 {
   "name": "onenote-mcp",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Model Context Protocol (MCP) server for Microsoft OneNote — full read/write access to notebooks, sections, and pages via OAuth",
   "type": "module",
   "main": "./dist/index.js",
@@ -81,10 +81,5 @@
     "typescript": "5.9.3",
     "typescript-eslint": "8.56.0",
     "vitest": "4.0.18"
-  },
-  "pnpm": {
-    "overrides": {
-      "minimatch": ">=10.2.1"
-    }
   }
 }
