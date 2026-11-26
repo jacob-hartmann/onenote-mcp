@@ -25,7 +25,7 @@ describe("getOneNoteClient", () => {
   });
 
   it("returns client when auth succeeds", async () => {
-    const client = {} as OneNoteClient;
+    const client = {} as unknown as OneNoteClient;
     vi.mocked(createClientFromAuth).mockResolvedValue({
       success: true,
       data: client,
@@ -75,7 +75,7 @@ describe("getOneNoteClient", () => {
 
 describe("getOneNoteClientOrThrow", () => {
   it("returns the client when auth succeeds", async () => {
-    const client = {} as OneNoteClient;
+    const client = {} as unknown as OneNoteClient;
     vi.mocked(createClientFromAuth).mockResolvedValue({
       success: true,
       data: client,
