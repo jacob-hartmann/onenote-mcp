@@ -98,8 +98,7 @@ let lastOnEvict: ((key: string, value: unknown) => void) | undefined;
 
 /** Get the captured onEvict callback */
 function getCapturedOnEvict():
-  | ((key: string, value: unknown) => void)
-  | undefined {
+  ((key: string, value: unknown) => void) | undefined {
   return lastOnEvict;
 }
 
@@ -594,7 +593,7 @@ describe("startHttpServer", () => {
       // Reset the listen mock to resolve for the new server
       simulateListen();
 
-      await startHttpServer(brokenGetServer as never, mockConfig);
+      await startHttpServer(brokenGetServer, mockConfig);
 
       const postCall = mockAppPost.mock.calls.find(
         (call: unknown[]) => call[0] === "/mcp"
@@ -623,7 +622,7 @@ describe("startHttpServer", () => {
       };
 
       simulateListen();
-      await startHttpServer(brokenGetServer as never, mockConfig);
+      await startHttpServer(brokenGetServer, mockConfig);
 
       const postCall = mockAppPost.mock.calls.find(
         (call: unknown[]) => call[0] === "/mcp"

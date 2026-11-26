@@ -12,8 +12,7 @@ import type {
 import { OneNoteClient, createClientFromAuth } from "./client.js";
 
 export type OneNoteClientResult =
-  | { success: true; client: OneNoteClient }
-  | { success: false; error: string };
+  { success: true; client: OneNoteClient } | { success: false; error: string };
 
 /**
  * Get a OneNoteClient from MCP request context.

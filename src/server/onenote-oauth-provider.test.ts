@@ -241,7 +241,7 @@ describe("OneNoteProxyOAuthProvider", () => {
         redirect: vi.fn(),
       };
 
-      await provider.authorize(client as never, params as never, res as never);
+      await provider.authorize(client, params, res as never);
 
       expect(res.redirect).toHaveBeenCalledTimes(1);
       const redirectUrl = new URL(res.redirect.mock.calls[0]![0] as string);
@@ -267,7 +267,7 @@ describe("OneNoteProxyOAuthProvider", () => {
         redirect: vi.fn(),
       };
 
-      await provider.authorize(client as never, params as never, res as never);
+      await provider.authorize(client, params, res as never);
 
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith(
@@ -290,7 +290,7 @@ describe("OneNoteProxyOAuthProvider", () => {
       };
       const res = { redirect: vi.fn() };
 
-      await provider.authorize(client as never, params as never, res as never);
+      await provider.authorize(client, params, res as never);
 
       const storedRequest = mockTokenStore.storePendingRequest.mock
         .calls[0]![0] as Record<string, unknown>;
@@ -313,7 +313,7 @@ describe("OneNoteProxyOAuthProvider", () => {
       };
       const res = { redirect: vi.fn() };
 
-      await provider.authorize(client as never, params as never, res as never);
+      await provider.authorize(client, params as never, res as never);
 
       const storedRequest = mockTokenStore.storePendingRequest.mock
         .calls[0]![0] as Record<string, unknown>;
@@ -749,13 +749,10 @@ describe("OneNoteProxyOAuthProvider", () => {
     it("revokes refresh token when hint is refresh_token", async () => {
       const provider = new OneNoteProxyOAuthProvider(mockConfig);
 
-      await provider.revokeToken(
-        {} as never,
-        {
-          token: "refresh-xyz",
-          token_type_hint: "refresh_token",
-        } as never
-      );
+      await provider.revokeToken({} as never, {
+        token: "refresh-xyz",
+        token_type_hint: "refresh_token",
+      });
 
       expect(mockTokenStore.revokeRefreshToken).toHaveBeenCalledWith(
         "refresh-xyz"
@@ -766,13 +763,10 @@ describe("OneNoteProxyOAuthProvider", () => {
     it("tries both token types when hint is not refresh_token", async () => {
       const provider = new OneNoteProxyOAuthProvider(mockConfig);
 
-      await provider.revokeToken(
-        {} as never,
-        {
-          token: "some-token",
-          token_type_hint: "access_token",
-        } as never
-      );
+      await provider.revokeToken({} as never, {
+        token: "some-token",
+        token_type_hint: "access_token",
+      });
 
       expect(mockTokenStore.revokeAccessToken).toHaveBeenCalledWith(
         "some-token"
@@ -785,12 +779,9 @@ describe("OneNoteProxyOAuthProvider", () => {
     it("tries both token types when no hint is provided", async () => {
       const provider = new OneNoteProxyOAuthProvider(mockConfig);
 
-      await provider.revokeToken(
-        {} as never,
-        {
-          token: "unknown-token",
-        } as never
-      );
+      await provider.revokeToken({} as never, {
+        token: "unknown-token",
+      });
 
       expect(mockTokenStore.revokeAccessToken).toHaveBeenCalledWith(
         "unknown-token"
