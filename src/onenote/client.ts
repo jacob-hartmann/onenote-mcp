@@ -286,8 +286,7 @@ export class OneNoteClient {
     let apiMessage: string | undefined;
     try {
       const body = (await response.json()) as
-        | { message?: string; error?: { message?: string } }
-        | undefined;
+        { message?: string; error?: { message?: string } } | undefined;
       apiMessage = body?.message ?? body?.error?.message;
     } catch {
       // ignore parse errors for error body

@@ -19,7 +19,6 @@ import { requireBearerAuth } from "@modelcontextprotocol/sdk/server/auth/middlew
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 
 import type { HttpServerConfig } from "./config.js";
 import {
@@ -100,7 +99,7 @@ export async function startHttpServer(
   // Rate limiting for OAuth and MCP endpoints
   const limiter = rateLimit({
     windowMs: RATE_LIMIT_WINDOW_MS,
-    max: RATE_LIMIT_MAX,
+    limit: RATE_LIMIT_MAX,
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: "Too many requests, please try again later" },
@@ -330,9 +329,8 @@ export async function startHttpServer(
         };
 
         // Connect transport to a new server instance
-        // Cast required due to exactOptionalPropertyTypes incompatibility with SDK
         const server = getServer();
-        await server.connect(transport as unknown as Transport);
+        await server.connect(transport);
         await transport.handleRequest(req, res, req.body);
         return;
       } else if (sessionId && !existingSession) {
